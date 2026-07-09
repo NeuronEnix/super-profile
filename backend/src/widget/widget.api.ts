@@ -1,0 +1,192 @@
+import { Hono } from "hono";
+import { z } from "zod";
+import { ok } from "../common/envelope";
+import { ctxErr } from "../ctx/ctx.error";
+import { validate } from "../middleware/validate";
+import { widgetAuthMiddleware } from "../middleware/widget-auth";
+import { now, uuidv7 } from "../common/id";
+import { signWidgetToken } from "../auth/token";
+import { sendMessage, markRead } from "../realtime/hub";
+import type { HonoEnv } from "../common/hono-env";
+
+const BootBody = z.object({
+  widgetKey: z.string().min(1),
+  userId: z.string().optional(),
+  email: z.string().email().optional(),
+  name: z.string().min(1).max(120).optional(),
+});
+
+const MessagesQuery = z.object({ afterId: z.string().optional(), limit: z.coerce.number().int().min(1).max(200).optional() });
+const PostMessageBody = z.object({ body: z.string().min(1).max(20_000) });
+
+type ContactRow = { id: string; name: string | null; email: string | null };
+
+const CONVERSATION_COLS =
+  "id, workspace_id as workspaceId, contact_id as contactId, channel, status, subject, last_message_at as lastMessageAt, last_message_preview as lastMessagePreview, message_count as messageCount, contact_last_read_at as contactLastReadAt, created_at as createdAt, updated_at as updatedAt";
+
+const MESSAGE_COLS =
+  "id, conversation_id as conversationId, workspace_id as workspaceId, sender_type as senderType, sender_id as senderId, body_text as bodyText, body_html as bodyHtml, created_at as createdAt";
+
+async function resolveWidgetUserId(db: D1Database, proposedId: string | undefined, ts: number): Promise<string> {
+  if (proposedId) {
+    const existing = await db.prepare("SELECT id FROM users WHERE id=?1").bind(proposedId).first();
+    if (existing) {
+      await db.prepare("UPDATE users SET last_seen_at=?1 WHERE id=?2").bind(ts, proposedId).run();
+      return proposedId;
+    }
+  }
+  const freshId = uuidv7();
+  await db
+    .prepare("INSERT INTO users (id, email, name, last_seen_at, created_at) VALUES (?1, NULL, NULL, ?2, ?2)")
+    .bind(freshId, ts)
+    .run();
+  return freshId;
+}
+
+async function resolveContact(
+  db: D1Database,
+  workspaceId: string,
+  userId: string,
+  email: string | undefined,
+  name: string | undefined,
+  ts: number,
+): Promise<ContactRow> {
+  const existing = await db
+    .prepare("SELECT id, name, email FROM contacts WHERE workspace_id=?1 AND user_id=?2")
+    .bind(workspaceId, userId)
+    .first<ContactRow>();
+  if (!existing) {
+    const contactId = uuidv7();
+    await db
+      .prepare(
+        "INSERT INTO contacts (id, workspace_id, user_id, email, name, last_seen_at, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+      )
+      .bind(contactId, workspaceId, userId, email ?? null, name ?? null, ts)
+      .run();
+    return { id: contactId, name: name ?? null, email: email ?? null };
+  }
+  const nextEmail = existing.email ?? email ?? null;
+  const nextName = existing.name ?? name ?? null;
+  await db
+    .prepare("UPDATE contacts SET email=?1, name=?2, last_seen_at=?3 WHERE id=?4")
+    .bind(nextEmail, nextName, ts, existing.id)
+    .run();
+  return { id: existing.id, name: nextName, email: nextEmail };
+}
+
+async function assertOwnedConversation(db: D1Database, conversationId: string, workspaceId: string, userId: string) {
+  const row = await db
+    .prepare(
+      `SELECT c.id FROM conversations c JOIN contacts ct ON ct.id = c.contact_id
+       WHERE c.id=?1 AND c.workspace_id=?2 AND ct.user_id=?3`,
+    )
+    .bind(conversationId, workspaceId, userId)
+    .first();
+  if (!row) throw ctxErr.conversation.notFound();
+}
+
+export const widgetApi = new Hono<HonoEnv>();
+
+widgetApi.post("/boot", validate(BootBody, "json"), async (c) => {
+  const { widgetKey, userId, email, name } = c.get("body") as z.infer<typeof BootBody>;
+  const workspace = await c.env.DB.prepare(
+    "SELECT id, name, widget_color as widgetColor FROM workspaces WHERE widget_key=?1",
+  )
+    .bind(widgetKey)
+    .first<{ id: string; name: string; widgetColor: string }>();
+  if (!workspace) throw ctxErr.widget.invalidKey();
+
+  const ts = now();
+  const resolvedUserId = await resolveWidgetUserId(c.env.DB, userId, ts);
+  const contact = await resolveContact(c.env.DB, workspace.id, resolvedUserId, email, name, ts);
+  const token = await signWidgetToken(c.env, resolvedUserId, workspace.id);
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT ${CONVERSATION_COLS} FROM conversations WHERE workspace_id=?1 AND contact_id=?2 ORDER BY last_message_at DESC LIMIT 50`,
+  )
+    .bind(workspace.id, contact.id)
+    .all();
+
+  return ok(c, {
+    userId: resolvedUserId,
+    token,
+    contact,
+    workspace: { id: workspace.id, name: workspace.name, widgetColor: workspace.widgetColor },
+    conversations: results,
+  });
+});
+
+widgetApi.use("/conversations/*", widgetAuthMiddleware);
+
+widgetApi.get("/conversations/:id/messages", validate(MessagesQuery, "query"), async (c) => {
+  const workspaceId = c.get("widgetWorkspaceId");
+  const userId = c.get("widgetUserId");
+  const id = c.req.param("id");
+  if (!id) throw ctxErr.conversation.notFound();
+  const q = c.get("body") as z.infer<typeof MessagesQuery>;
+  const limit = q.limit ?? 50;
+  await assertOwnedConversation(c.env.DB, id, workspaceId, userId);
+
+  if (q.afterId) {
+    const { results } = await c.env.DB.prepare(
+      `SELECT ${MESSAGE_COLS} FROM messages WHERE conversation_id=?1 AND id>?2 ORDER BY id ASC LIMIT ?3`,
+    )
+      .bind(id, q.afterId, limit)
+      .all();
+    return ok(c, { messages: results });
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT ${MESSAGE_COLS} FROM messages WHERE conversation_id=?1 ORDER BY id DESC LIMIT ?2`,
+  )
+    .bind(id, limit)
+    .all();
+  return ok(c, { messages: results.reverse() });
+});
+
+widgetApi.post("/conversations", widgetAuthMiddleware, validate(PostMessageBody, "json"), async (c) => {
+  const workspaceId = c.get("widgetWorkspaceId");
+  const userId = c.get("widgetUserId");
+  const { body } = c.get("body") as z.infer<typeof PostMessageBody>;
+
+  const contact = await c.env.DB.prepare("SELECT id FROM contacts WHERE workspace_id=?1 AND user_id=?2")
+    .bind(workspaceId, userId)
+    .first<{ id: string }>();
+  if (!contact) throw ctxErr.conversation.notFound();
+
+  const out = await sendMessage(c.env, {
+    workspaceId,
+    newConversation: { contactId: contact.id, channel: "CHAT", subject: null },
+    senderType: "CONTACT",
+    senderId: userId,
+    bodyText: body,
+  });
+  return ok(c, out);
+});
+
+widgetApi.post("/conversations/:id/messages", validate(PostMessageBody, "json"), async (c) => {
+  const workspaceId = c.get("widgetWorkspaceId");
+  const userId = c.get("widgetUserId");
+  const id = c.req.param("id");
+  if (!id) throw ctxErr.conversation.notFound();
+  const { body } = c.get("body") as z.infer<typeof PostMessageBody>;
+  await assertOwnedConversation(c.env.DB, id, workspaceId, userId);
+
+  const out = await sendMessage(c.env, {
+    workspaceId,
+    conversationId: id,
+    senderType: "CONTACT",
+    senderId: userId,
+    bodyText: body,
+  });
+  return ok(c, out);
+});
+
+widgetApi.post("/conversations/:id/read", async (c) => {
+  const workspaceId = c.get("widgetWorkspaceId");
+  const userId = c.get("widgetUserId");
+  const id = c.req.param("id");
+  if (!id) throw ctxErr.conversation.notFound();
+  await assertOwnedConversation(c.env.DB, id, workspaceId, userId);
+  await markRead(c.env, workspaceId, id, "CONTACT");
+  return ok(c);
+});

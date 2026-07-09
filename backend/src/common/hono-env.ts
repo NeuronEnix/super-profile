@@ -8,6 +8,8 @@ export type Vars = {
   userId: string;
   member: Member;
   body: unknown;
+  widgetUserId: string;
+  widgetWorkspaceId: string;
 };
 
 export type HonoEnv = { Bindings: Env; Variables: Vars };

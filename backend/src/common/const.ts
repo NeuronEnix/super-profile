@@ -1,0 +1,16 @@
+export const ROLE = { ADMIN: "ADMIN", AGENT: "AGENT" } as const;
+export const CHANNEL = { CHAT: "CHAT", EMAIL: "EMAIL" } as const;
+export const CONVERSATION = { STATUS: { OPEN: "OPEN", SNOOZED: "SNOOZED", RESOLVED: "RESOLVED" } } as const;
+export const MESSAGE = { SENDER_TYPE: { CONTACT: "CONTACT", AGENT: "AGENT", SYSTEM: "SYSTEM" } } as const;
+export const ARTICLE = { STATUS: { DRAFT: "DRAFT", PUBLISHED: "PUBLISHED" } } as const;
+export const DOMAIN = { STATUS: { PENDING_DNS: "PENDING_DNS", ACTIVE: "ACTIVE", FAILED: "FAILED" } } as const;
+export const AUTH = { ACCESS_TOKEN_TTL_SEC: 30 * 60, REFRESH_TOKEN_TTL_SEC: 30 * 24 * 3600,
+  MAGIC_LINK_TTL_SEC: 10 * 60, INVITE_TTL_SEC: 7 * 24 * 3600, WIDGET_TOKEN_TTL_SEC: 7 * 24 * 3600,
+  REFRESH_COOKIE: "sp_refresh", REFRESH_COOKIE_PATH: "/api/v1/auth/refresh" } as const;
+export const AI_CONF = { MODEL: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  SUMMARY_WINDOW: 30, TIMEOUT_MS: 10_000, MAX_TOKENS: 300 } as const;
+export const FLAG = { RATE_LIMIT_ENABLED: false } as const;
+export const RATE_LIMIT = { MAGIC_LINK: { PER_EMAIL: 3, PER_IP: 10, WINDOW_SEC: 600 },
+  WIDGET_MSG: { PER_USER: 60, WINDOW_SEC: 60 } } as const;
+export const WS_EVENT = { MESSAGE_CREATED: "MESSAGE_CREATED", TYPING: "TYPING", PRESENCE: "PRESENCE",
+  READ_RECEIPT: "READ_RECEIPT", CONVERSATION_UPDATED: "CONVERSATION_UPDATED", PONG: "PONG" } as const;

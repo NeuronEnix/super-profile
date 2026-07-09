@@ -237,9 +237,9 @@ export function uuidv7(): string {
 }
 ```
 
-- [ ] Write vitest tests first (uuidv7 format regex + 1000 ids sortable-by-time & unique; ctxErr factory returns CtxError with name/msg/data; envelope shapes incl. ZodError mapping via a fake context or exported pure mapper) → red → implement → green.
-- [ ] Wire logger+error handler into index.ts; curl a bogus route → 400 NOT_FOUND envelope (add explicit `app.notFound` → `ctxErr.general.notFound`).
-- [ ] Commit + push (`feat: envelope, ctxErr, constants, config, logging`).
+- [x] Write vitest tests first (uuidv7 format regex + 1000 ids sortable-by-time & unique; ctxErr factory returns CtxError with name/msg/data; envelope shapes incl. ZodError mapping via a fake context or exported pure mapper) → red → implement → green.
+- [x] Wire logger+error handler into index.ts; curl a bogus route → 400 NOT_FOUND envelope (add explicit `app.notFound` → `ctxErr.general.notFound`).
+- [x] Commit + push (`feat: envelope, ctxErr, constants, config, logging`).
 
 ---
 

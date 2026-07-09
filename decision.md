@@ -91,3 +91,17 @@ chat); everything after gets appended during the overnight run.
 
 ---
 <!-- Overnight entries append below -->
+
+## 10. 404 handling: scoped `/api/v1/*` fallback instead of `app.notFound()`
+
+- **Context:** Plan Task 1 called for `app.notFound()` → `ctxErr.general.notFound()` for bogus-route
+  400s. But `index.ts` ends with `app.all('*', c => c.env.ASSETS.fetch(c.req.raw))` for the SPA —
+  once a catch-all route pattern is registered, Hono considers every request "matched", so
+  `app.notFound()` never fires (it only runs when no route pattern matches at all).
+- **Chosen:** an explicit `app.all('/api/v1/*', () => { throw ctxErr.general.notFound() })`
+  registered after the real API routes but before the SPA catch-all. Bogus `/api/v1/...` paths get
+  the 400 envelope; genuine frontend paths still fall through to `ASSETS.fetch` for the SPA.
+  Verified via curl against `wrangler dev`.
+- **Why it's safe:** functionally identical outcome to what the plan asked for (bogus API route →
+  400 NOT_FOUND envelope); the mechanism differs only because of a Hono routing nuance the plan
+  didn't anticipate.

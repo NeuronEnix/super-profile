@@ -1,0 +1,29 @@
+import type { Env } from "../types";
+
+export type Config = {
+  APP_URL: string;
+  INBOUND_DOMAIN: string;
+  SEND_DOMAIN: string;
+  ENVIRONMENT: string;
+  RESEND_API_KEY: string;
+  JWT_ACCESS_SECRET: string;
+  JWT_REFRESH_SECRET: string;
+  WIDGET_TOKEN_SECRET: string;
+  EMAIL_INBOUND_SECRET: string;
+  DEBUG_AUTH_SECRET: string;
+};
+
+export function getConfig(env: Env): Config {
+  return {
+    APP_URL: env.APP_URL,
+    INBOUND_DOMAIN: env.INBOUND_DOMAIN,
+    SEND_DOMAIN: env.SEND_DOMAIN,
+    ENVIRONMENT: env.ENVIRONMENT,
+    RESEND_API_KEY: env.RESEND_API_KEY,
+    JWT_ACCESS_SECRET: env.JWT_ACCESS_SECRET,
+    JWT_REFRESH_SECRET: env.JWT_REFRESH_SECRET,
+    WIDGET_TOKEN_SECRET: env.WIDGET_TOKEN_SECRET,
+    EMAIL_INBOUND_SECRET: env.EMAIL_INBOUND_SECRET,
+    DEBUG_AUTH_SECRET: env.DEBUG_AUTH_SECRET,
+  };
+}

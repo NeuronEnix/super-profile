@@ -8,7 +8,9 @@ Things that need your hands or your judgment. The overnight run appends here; it
 - Prod URL: https://super-profile.kaushikrb909.workers.dev
 - Demo page (widget): https://super-profile.kaushikrb909.workers.dev/demo.html
 - Inbound email address pattern: `<workspace-slug>@inbox.hyugorix.com`
-- Task 0 (scaffold/D1/deploy) complete as of first overnight loop iteration.
+- Tasks 0–8 complete (scaffold, common infra, auth, workspaces/team, conversations+DO,
+  realtime WS, email channel, frontend shell + inbox UI + embeddable widget). All verified
+  against prod. KB (Task 9) and AI summaries (Task 10) still ahead.
 
 ## Actions for you
 

@@ -2,10 +2,70 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Acme Corp — demo store</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      .hero {
+        max-width: 640px;
+        margin: 96px auto;
+        padding: 0 24px;
+        text-align: center;
+      }
+      h1 {
+        font-size: 28px;
+        margin-bottom: 8px;
+      }
+      p {
+        color: #475569;
+        line-height: 1.6;
+      }
+      .note {
+        margin-top: 40px;
+        font-size: 13px;
+        color: #94a3b8;
+      }
+      code {
+        background: #e2e8f0;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+    </style>
   </head>
   <body>
-    <h1>Acme Corp</h1>
-    <p>SuperProfile widget demo — placeholder, replaced in Task 8.</p>
+    <div class="hero">
+      <h1>Acme Corp</h1>
+      <p>
+        This is a demo storefront showing the SuperProfile chat widget embedded on an ordinary
+        website — click the chat bubble in the bottom-right corner to start a conversation.
+      </p>
+      <p id="missing-key-note" class="note" style="display: none">
+        Add <code>?key=&lt;your-workspace-widget-key&gt;</code> to this URL to try the widget with
+        a real workspace.
+      </p>
+      <p class="note">
+        The widget works on any site — just paste one script tag before
+        <code>&lt;/body&gt;</code>:<br />
+        <code>&lt;script src="/widget.js" data-widget-key="wk_..."&gt;&lt;/script&gt;</code>
+      </p>
+    </div>
+    <script>
+      (function () {
+        var key = new URLSearchParams(window.location.search).get("key");
+        if (!key) {
+          document.getElementById("missing-key-note").style.display = "block";
+          return;
+        }
+        var s = document.createElement("script");
+        s.src = "/widget.js";
+        s.setAttribute("data-widget-key", key);
+        document.body.appendChild(s);
+      })();
+    </script>
   </body>
 </html>

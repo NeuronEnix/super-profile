@@ -373,9 +373,9 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
 - `widget.js` (vanilla, exact behavior): reads `data-widget-key` off its own `<script>`; injects fixed bottom-right 56px round button (bg = widget_color fetched lazily? NO — default indigo, real color inside iframe); on first click creates iframe `${origin}/widget-app?key=<key>` 380×580 rounded panel (100% width on mobile <480px), toggles open/close; postMessage `sp:unread` from iframe → badge count on button.
 - `/widget-app`: boots via `POST /widget/boot` with localStorage `sp_uid` (+ persists returned userId); **ticket-style home** (user requirement): conversation list w/ subject+preview+unread, "New conversation" button, KB search box (Task 9 wires suggest; input present now); TicketView = chat thread + composer + agent typing + "Delivered/Seen"; NewTicket = optional name/email fields (if contact has none) + first message → creates conversation. WS connect with widget token; reconnect logic shared hook.
 - `demo.html`: standalone page ("Acme Corp — demo store" hero) + the ONE script tag `<script src="/widget.js" data-widget-key="INJECTED_AT_TEST"></script>` — plus a note it works on any site. (Playwright injects a real key via query param handling in demo.html: tiny inline script copies `?key=` into the script tag before load — keep demo self-configuring: if `?key=` present use it, else placeholder text with instructions.)
-- [ ] Playwright `chat.spec.ts`: context A opens `/demo?key=<real>` → new ticket "My order is broken" → context B logs into dashboard → sees conversation, replies → A receives live (no reload, assert within 5s); A types → B sees typing indicator; B assigns+resolves → A's ticket shows Resolved; A sends again → reopens OPEN in B's list.
-- [ ] Deploy + run chat.spec against prod URL. Update MORNING.md snapshot with /demo link.
-- [ ] Commit + push (`feat: unified inbox UI and embeddable ticket-style chat widget`).
+- [x] Playwright `chat.spec.ts`: context A opens `/demo?key=<real>` → new ticket "My order is broken" → context B logs into dashboard → sees conversation, replies → A receives live (no reload, assert within 5s); A types → B sees typing indicator; B assigns+resolves → A's ticket shows Resolved; A sends again → reopens OPEN in B's list.
+- [x] Deploy + run chat.spec against prod URL. Update MORNING.md snapshot with /demo link.
+- [x] Commit + push (`feat: unified inbox UI and embeddable ticket-style chat widget`).
 
 ---
 

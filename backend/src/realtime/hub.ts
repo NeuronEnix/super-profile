@@ -353,8 +353,9 @@ export class WorkspaceHub {
       .bind(ts, truncatePreview(input.bodyText), nextStatus, conversationId)
       .run();
 
+    let reopenMessageId: string | null = null;
     if (reopen) {
-      const reopenMessageId = uuidv7();
+      reopenMessageId = uuidv7();
       await db
         .prepare(
           `INSERT INTO messages
@@ -375,9 +376,14 @@ export class WorkspaceHub {
 
     const conversation = await this.loadConversation(conversationId);
     const message = await this.loadMessage(messageId);
-
     const out: MessageOut = { conversation, message };
     await this.broadcast(out);
+
+    if (reopenMessageId) {
+      const reopenMessage = await this.loadMessage(reopenMessageId);
+      await this.broadcast({ conversation, message: reopenMessage });
+    }
+
     return out;
   }
 

@@ -38,7 +38,8 @@ const CONVERSATION_LIST_COLUMNS = `
   c.status as status, c.assignee_id as assigneeId, c.subject as subject,
   c.snoozed_until as snoozedUntil, c.last_message_at as lastMessageAt,
   c.last_message_preview as lastMessagePreview, c.message_count as messageCount,
-  c.agent_last_read_at as agentLastReadAt, c.created_at as createdAt, c.updated_at as updatedAt,
+  c.agent_last_read_at as agentLastReadAt, c.contact_last_read_at as contactLastReadAt,
+  c.created_at as createdAt, c.updated_at as updatedAt,
   ct.id as contactRowId, ct.name as contactName, ct.email as contactEmail
 `;
 
@@ -55,6 +56,7 @@ type ConversationListRow = {
   lastMessagePreview: string;
   messageCount: number;
   agentLastReadAt: number | null;
+  contactLastReadAt: number | null;
   createdAt: number;
   updatedAt: number;
   contactRowId: string;

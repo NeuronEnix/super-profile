@@ -31,6 +31,7 @@ export default function Shell() {
       <aside className="flex w-56 shrink-0 flex-col border-r border-slate-200 bg-white">
         <div className="border-b border-slate-200 p-3">
           <select
+            aria-label="Workspace"
             value={currentWs?.id ?? ""}
             onChange={handleSwitchWorkspace}
             className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm font-medium text-slate-900"

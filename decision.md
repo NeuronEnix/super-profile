@@ -173,3 +173,34 @@ chat); everything after gets appended during the overnight run.
   existing 400 errors, invite form + pending-invites list with revoke.
 - **Why it's safe:** the backend contract was already finalized in Task 3; this just fills a real
   gap in task coverage rather than adding scope beyond the assignment's non-negotiable feature 1.
+
+## 15. Two real bugs found and fixed via the chat.spec.ts Playwright test (Task 8)
+
+Both were caught by making the two-way widget/dashboard Playwright test pass, not by inspection —
+worth recording since they'd bite silently otherwise.
+
+- **`ConversationView.handleSend()` crashed the whole page on the second message in a
+  conversation.** `POST /ws/:wsId/conversations/:id/messages` returns the DO's raw
+  `ConversationRow` (no `contact` field — the DO write path is intentionally decoupled from the
+  contacts JOIN). The frontend was setting that bare object directly into `conversation` state and
+  then rendering `conversation.contact.name`, which throws once the response overwrites the
+  richer object the initial `GET` had populated. No error boundary was in place, so React silently
+  unmounted the whole `InboxPage` subtree — which looked exactly like a WebSocket reconnect bug
+  (send/recv working every other layer down) until a `pageerror` listener in the test caught the
+  actual `TypeError`. **Fix:** `ConversationView` now merges every DO-write-path response
+  (`ConversationSnapshot`, no `contact`) onto the previously-known `contact` via a ref, instead of
+  trusting the response's shape. The same hazard exists anywhere a REST caller stores a DO-write
+  response directly — `ConversationList`/`InboxPage`'s `mergeSnapshot` already did this correctly
+  for WS-delivered events; this was the one path (a REST response, not a WS push) that hadn't been
+  patched the same way.
+- **The "Conversation reopened" SYSTEM message was never broadcast over WS.** `handleMessage()` in
+  `WorkspaceHub` inserts the reopen SYSTEM message into D1 but only ever called
+  `this.broadcast()` for the *original* triggering message — the reopen message was correct in the
+  database (a REST refetch would show it) but never pushed live. **Fix:** `handleMessage()` now
+  broadcasts a second `MESSAGE_CREATED` event for the reopen message when one was inserted, so
+  dashboard/widget both see "Conversation reopened" appear live, matching what a page reload would
+  already show.
+- **Why worth calling out:** both fixes are proven by the same passing `chat.spec.ts` run tonight
+  against `wrangler dev`, then re-verified against prod — this is exactly the kind of thing that
+  would have looked "fine" in a quick manual click-through but broken for evaluators the moment
+  someone sent a second chat message.

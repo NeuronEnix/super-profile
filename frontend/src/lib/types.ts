@@ -40,11 +40,27 @@ export type Conversation = {
   lastMessagePreview: string;
   messageCount: number;
   agentLastReadAt: number | null;
+  contactLastReadAt: number | null;
   createdAt: number;
   updatedAt: number;
   unread: boolean;
   contact: Contact;
 };
+
+/**
+ * The DO's raw conversation row, as broadcast over WS — no nested `contact` object and no
+ * precomputed `unread` (those are added by the REST list/detail endpoints only). Callers must
+ * merge this into any existing `Conversation` they're holding rather than replacing it outright.
+ */
+export type ConversationSnapshot = Omit<Conversation, "contact" | "unread">;
+
+export type WsEvent =
+  | { type: "MESSAGE_CREATED"; conversation: ConversationSnapshot; message: Message }
+  | { type: "CONVERSATION_UPDATED"; conversation: ConversationSnapshot }
+  | { type: "TYPING"; conversationId: string; from: "AGENT" | "CONTACT"; state: "START" | "STOP" }
+  | { type: "PRESENCE"; agentsOnline: number }
+  | { type: "READ_RECEIPT"; conversationId: string; by: "AGENT" | "CONTACT"; at: number }
+  | { type: "PONG" };
 
 export type Message = {
   id: string;

@@ -6,7 +6,7 @@ import { validate } from "../middleware/validate";
 import { authMiddleware, wsMiddleware } from "../middleware/auth";
 import { CHANNEL, CONVERSATION } from "../common/const";
 import { now } from "../common/id";
-import { sendMessage, markRead } from "../realtime/hub";
+import { sendMessage, markRead, notifyConversationUpdated } from "../realtime/hub";
 import { encodeConversationCursor, decodeConversationCursor } from "./service";
 import type { HonoEnv } from "../common/hono-env";
 
@@ -267,6 +267,9 @@ conversationsApi.patch("/conversations/:id", validate(PatchConversationBody, "js
 
   for (const text of systemMessages) {
     await sendMessage(c.env, { workspaceId, conversationId: id, senderType: "SYSTEM", senderId: null, bodyText: text });
+  }
+  if (sets.length > 0) {
+    await notifyConversationUpdated(c.env, workspaceId, id);
   }
 
   const updated = await c.env.DB.prepare(

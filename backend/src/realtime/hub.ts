@@ -1,7 +1,13 @@
 import { uuidv7, now } from "../common/id";
-import { CONVERSATION } from "../common/const";
+import { CONVERSATION, WS_EVENT } from "../common/const";
 import { truncatePreview, shouldReopen } from "../conversations/service";
 import type { Env } from "../types";
+
+type SocketAttachment = { kind: "AGENT" | "CONTACT"; userId: string };
+type ClientMessage =
+  | { type: "TYPING"; conversationId: string; state: "START" | "STOP" }
+  | { type: "READ"; conversationId: string }
+  | { type: "PING" };
 
 export type MessageIn = {
   workspaceId: string;
@@ -79,6 +85,19 @@ export async function markRead(
   if (!res.ok) throw new Error(`hub /read failed: ${res.status}`);
 }
 
+export async function notifyConversationUpdated(
+  env: Env,
+  workspaceId: string,
+  conversationId: string,
+): Promise<void> {
+  const stub = getHubStub(env, workspaceId);
+  const res = await stub.fetch("https://do/conversation-updated", {
+    method: "POST",
+    body: JSON.stringify({ conversationId }),
+  });
+  if (!res.ok) throw new Error(`hub /conversation-updated failed: ${res.status}`);
+}
+
 const CONVERSATION_COLUMNS = `
   id, workspace_id as workspaceId, contact_id as contactId, channel, status,
   assignee_id as assigneeId, subject, snoozed_until as snoozedUntil,
@@ -96,14 +115,21 @@ const MESSAGE_COLUMNS = `
 
 export class WorkspaceHub {
   private env: Env;
+  private state: DurableObjectState;
+  /** conversationId -> the contact's user_id. Lazily filled from D1, survives hibernation wake. */
+  private convContact: Map<string, string> = new Map();
 
-  constructor(_state: DurableObjectState, env: Env) {
+  constructor(state: DurableObjectState, env: Env) {
+    this.state = state;
     this.env = env;
   }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     try {
+      if (url.pathname === "/connect") {
+        return this.handleConnect(request);
+      }
       if (url.pathname === "/message" && request.method === "POST") {
         const input = (await request.json()) as MessageIn;
         const out = await this.handleMessage(input);
@@ -114,11 +140,130 @@ export class WorkspaceHub {
         await this.handleRead(input);
         return Response.json({ ok: true });
       }
+      if (url.pathname === "/conversation-updated" && request.method === "POST") {
+        const input = (await request.json()) as { conversationId: string };
+        const conversation = await this.loadConversation(input.conversationId);
+        await this.broadcastConversationUpdated(conversation);
+        return Response.json({ ok: true });
+      }
       return new Response("not found", { status: 404 });
     } catch (e) {
       console.error(e);
       return new Response("hub error", { status: 500 });
     }
+  }
+
+  private handleConnect(request: Request): Response {
+    const kind = request.headers.get("x-kind");
+    const userId = request.headers.get("x-user-id");
+    if ((kind !== "AGENT" && kind !== "CONTACT") || !userId) {
+      return new Response("missing x-kind/x-user-id", { status: 400 });
+    }
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    this.state.acceptWebSocket(server);
+    const attachment: SocketAttachment = { kind, userId };
+    server.serializeAttachment(attachment);
+    if (kind === "AGENT") this.broadcastPresence();
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    if (typeof message !== "string") return;
+    const attachment = this.readAttachment(ws);
+    if (!attachment) return;
+    let parsed: ClientMessage;
+    try {
+      parsed = JSON.parse(message);
+    } catch {
+      return;
+    }
+    if (parsed.type === "PING") {
+      ws.send(JSON.stringify({ type: WS_EVENT.PONG }));
+      return;
+    }
+    if (parsed.type === "TYPING") {
+      await this.handleTyping(attachment, parsed.conversationId, parsed.state);
+      return;
+    }
+    if (parsed.type === "READ") {
+      await this.handleRead({ conversationId: parsed.conversationId, by: attachment.kind });
+    }
+  }
+
+  async webSocketClose(ws: WebSocket, _code: number, _reason: string, _wasClean: boolean): Promise<void> {
+    const attachment = this.readAttachment(ws);
+    if (attachment?.kind === "AGENT") this.broadcastPresence();
+  }
+
+  private readAttachment(ws: WebSocket): SocketAttachment | null {
+    try {
+      return (ws.deserializeAttachment() as SocketAttachment) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getContactUserId(conversationId: string): Promise<string | null> {
+    const cached = this.convContact.get(conversationId);
+    if (cached) return cached;
+    const row = await this.env.DB.prepare(
+      `SELECT ct.user_id as userId FROM conversations c JOIN contacts ct ON ct.id = c.contact_id WHERE c.id=?1`,
+    )
+      .bind(conversationId)
+      .first<{ userId: string }>();
+    if (!row) return null;
+    this.convContact.set(conversationId, row.userId);
+    return row.userId;
+  }
+
+  private async handleTyping(attachment: SocketAttachment, conversationId: string, state: "START" | "STOP") {
+    const event = { type: WS_EVENT.TYPING, conversationId, from: attachment.kind, state };
+    if (attachment.kind === "CONTACT") {
+      this.emitToAgents(event);
+    } else {
+      const contactUserId = await this.getContactUserId(conversationId);
+      this.emitToContact(event, contactUserId);
+    }
+  }
+
+  private emitToAll(event: unknown, contactUserId: string | null) {
+    const payload = JSON.stringify(event);
+    for (const ws of this.state.getWebSockets()) {
+      const attachment = this.readAttachment(ws);
+      if (!attachment) continue;
+      if (attachment.kind === "AGENT") ws.send(payload);
+      else if (contactUserId && attachment.userId === contactUserId) ws.send(payload);
+    }
+  }
+
+  private emitToAgents(event: unknown) {
+    const payload = JSON.stringify(event);
+    for (const ws of this.state.getWebSockets()) {
+      if (this.readAttachment(ws)?.kind === "AGENT") ws.send(payload);
+    }
+  }
+
+  private emitToContact(event: unknown, contactUserId: string | null) {
+    if (!contactUserId) return;
+    const payload = JSON.stringify(event);
+    for (const ws of this.state.getWebSockets()) {
+      const attachment = this.readAttachment(ws);
+      if (attachment?.kind === "CONTACT" && attachment.userId === contactUserId) ws.send(payload);
+    }
+  }
+
+  private broadcastToEveryone(event: unknown) {
+    const payload = JSON.stringify(event);
+    for (const ws of this.state.getWebSockets()) ws.send(payload);
+  }
+
+  private broadcastPresence() {
+    let agentsOnline = 0;
+    for (const ws of this.state.getWebSockets()) {
+      if (this.readAttachment(ws)?.kind === "AGENT") agentsOnline++;
+    }
+    this.broadcastToEveryone({ type: WS_EVENT.PRESENCE, agentsOnline });
   }
 
   private async loadConversation(id: string): Promise<ConversationRow> {
@@ -232,7 +377,7 @@ export class WorkspaceHub {
     const message = await this.loadMessage(messageId);
 
     const out: MessageOut = { conversation, message };
-    this.broadcast(out);
+    await this.broadcast(out);
     return out;
   }
 
@@ -241,12 +386,21 @@ export class WorkspaceHub {
     await this.env.DB.prepare(`UPDATE conversations SET ${column}=?1 WHERE id=?2`)
       .bind(now(), input.conversationId)
       .run();
-    this.broadcastRead(input.conversationId, input.by);
+    await this.broadcastRead(input.conversationId, input.by);
   }
 
-  /** Task 5 hook: overridden behavior lands once WebSocket hibernation is wired up. */
-  private broadcast(_out: MessageOut): void {}
+  private async broadcast(out: MessageOut): Promise<void> {
+    const contactUserId = await this.getContactUserId(out.conversation.id);
+    this.emitToAll({ type: WS_EVENT.MESSAGE_CREATED, conversation: out.conversation, message: out.message }, contactUserId);
+  }
 
-  /** Task 5 hook: overridden behavior lands once WebSocket hibernation is wired up. */
-  private broadcastRead(_conversationId: string, _by: "AGENT" | "CONTACT"): void {}
+  private async broadcastRead(conversationId: string, by: "AGENT" | "CONTACT"): Promise<void> {
+    const contactUserId = await this.getContactUserId(conversationId);
+    this.emitToAll({ type: WS_EVENT.READ_RECEIPT, conversationId, by, at: now() }, contactUserId);
+  }
+
+  private async broadcastConversationUpdated(conversation: ConversationRow): Promise<void> {
+    const contactUserId = await this.getContactUserId(conversation.id);
+    this.emitToAll({ type: WS_EVENT.CONVERSATION_UPDATED, conversation }, contactUserId);
+  }
 }

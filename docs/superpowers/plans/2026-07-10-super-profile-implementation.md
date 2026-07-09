@@ -325,8 +325,8 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
 - READ handling in DO: update the right watermark column in D1, broadcast READ_RECEIPT.
 - PRESENCE: broadcast `{agentsOnline: count of AGENT sockets}` on every AGENT open/close.
 - `broadcast()` hook from Task 4 now sends MESSAGE_CREATED per routing rule; PATCH conversation flows emit CONVERSATION_UPDATED.
-- [ ] Verify with `wrangler dev` + a Node script in `e2e/scripts/ws-check.mjs` (two WebSocket clients: agent + widget token): message POST → both receive MESSAGE_CREATED; typing relays; second widget user for another contact does NOT receive the first contact's events (assert isolation!); read → receipt.
-- [ ] Commit + push (`feat: realtime websockets with hibernation, typing/presence/receipts`).
+- [x] Verify with `wrangler dev` + a Node script in `e2e/scripts/ws-check.mjs` (two WebSocket clients: agent + widget token): message POST → both receive MESSAGE_CREATED; typing relays; second widget user for another contact does NOT receive the first contact's events (assert isolation!); read → receipt.
+- [x] Commit + push (`feat: realtime websockets with hibernation, typing/presence/receipts`).
 
 **Fallback:** hibernation API misbehaving in local dev → standard `new WebSocketPair()` handlers (document in decision.md; hibernation is a cost optimization, not a feature gate).
 

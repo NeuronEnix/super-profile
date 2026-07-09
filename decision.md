@@ -232,3 +232,52 @@ worth recording since they'd bite silently otherwise.
   individually and passes serialized every time). Set `fullyParallel: false`, `workers: 1`,
   `retries: 1` in `playwright.config.ts` so the Task 13 final sweep (and anyone re-running these
   tests) gets a reliable signal instead of chasing test-harness flakiness.
+
+## 17. Task 10 — AI summaries and RateLimiter DO built and verified live
+
+- **RateLimiter DO implemented for real** (`backend/src/ratelimit/limiter.ts`), replacing the
+  placeholder `fetch() → "ok"` stub that had been sitting in `index.ts` since Task 0 just to
+  satisfy the `wrangler.jsonc` migrations entry. One shared DO instance (`idFromName("global")`)
+  holds an in-memory `Map<key, number[]>`; `/check` does prune-then-push sliding-window admission
+  keyed by an arbitrary caller-supplied string. The window math is a pure exported function
+  (`slideWindow`) unit-tested with injected timestamps (`backend/test/rate-limit.test.ts`) —
+  including the exact-boundary case (a timestamp equal to `now - windowMs` is expired, not
+  borderline-included).
+- `rateLimit(keyFn, limit, windowSec)` middleware (`backend/src/middleware/rate-limit.ts`) no-ops
+  entirely when `FLAG.RATE_LIMIT_ENABLED` is false (it still is, per the original design — this
+  task wires the mechanism, it doesn't turn it on). Applied to `POST /auth/magic-link` (two
+  separate checks: per-email and per-IP key) and to both widget message-send endpoints
+  (`POST /widget/conversations`, `POST /widget/conversations/:id/messages`, keyed by
+  `widgetUserId`).
+- **Verified enforcement actually works, not just that it compiles**: temporarily flipped
+  `FLAG.RATE_LIMIT_ENABLED` to `true` and dropped `MAGIC_LINK.PER_EMAIL` to 2 in a local
+  `wrangler dev` run only, confirmed the 3rd magic-link request for the same email came back
+  `RATE_LIMIT_EXCEEDED`, then reverted both values before anything was committed or deployed
+  (`git diff` on `const.ts` confirmed clean afterward).
+- **AI summaries** (`backend/src/ai/summary.ts`, `backend/src/ai/ai.api.ts`,
+  `GET /ws/:wsId/conversations/:id/summary`): cached by `ai_summary_msg_count === message_count`
+  (columns already existed in the Task 0 schema), 30-message rolling window, 10s timeout via
+  `Promise.race`, real `@cf/meta/llama-3.3-70b-instruct-fp8-fast` call. `?force=1` regenerates and
+  always seeds the prompt with the previous cached summary (not just on cache-miss) so it behaves
+  as a genuinely rolling summary rather than re-deriving from scratch each time.
+- **Verified against a real conversation, not a mock**: seeded an 8-message thread via the widget
+  + REST APIs (order-never-arrived / carrier-trace / replacement scenario), called the summary
+  endpoint locally — got back a correctly-shaped `WANTS:`/`TRIED:`/`STATUS:` response in ~2.5s,
+  confirmed the cache hit on a second call (23ms, `cached:true`), confirmed `?force=1` produces a
+  fresh distinct summary. Also confirmed the fallback path: temporarily pointed `AI_CONF.MODEL` at
+  a nonexistent model name in `wrangler dev` only, got `400 AI_UNAVAILABLE` with the right message,
+  then reverted before committing (per the plan's explicit instruction: "do not deploy that").
+- New `e2e/tests/summary.spec.ts` seeds the same scenario via API and asserts both the raw
+  endpoint shape and that the dashboard's new `SummaryPanel` (in `ConversationView`'s right column,
+  next to `ContactPanel`) actually renders the WANTS line — soft-skips (doesn't fail the suite) if
+  the API returns `AI_UNAVAILABLE` on a given run, per the plan's stated tolerance for AI flakiness
+  in CI, but a real successful run was required and obtained before ticking the box, both locally
+  and against prod.
+- **Observed, not new**: running the full 4-spec suite back-to-back locally saw one spec each run
+  intermittently fail on `Cannot read properties of undefined (reading 'workspace'/'id')` from the
+  shared `Promise.all([page.waitForResponse(...), click()])` create-workspace pattern, then pass on
+  Playwright's built-in retry. This affected `chat.spec.ts` and `kb.spec.ts` (both pre-existing
+  from Tasks 8–9) as often as the new `summary.spec.ts` — it's the same class of DO/timing
+  contention already documented in #16, not something Task 10 introduced. `retries: 1` already
+  absorbs it and a clean run (all 4 green, zero retries needed) is common; not chasing further
+  tonight given Tasks 11–13 remain.

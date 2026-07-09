@@ -1,11 +1,12 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { ok } from "../common/envelope";
 import { ctxErr } from "../ctx/ctx.error";
 import { validate } from "../middleware/validate";
 import { authMiddleware } from "../middleware/auth";
-import { AUTH } from "../common/const";
+import { rateLimit } from "../middleware/rate-limit";
+import { AUTH, RATE_LIMIT } from "../common/const";
 import { now, uuidv7 } from "../common/id";
 import { generateRawToken, hashToken, consumeToken } from "./magic";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./token";
@@ -29,33 +30,42 @@ function refreshCookieOpts() {
 
 export const authApi = new Hono<HonoEnv>();
 
-authApi.post("/magic-link", validate(MagicLinkBody, "json"), async (c) => {
-  const { email } = c.get("body") as z.infer<typeof MagicLinkBody>;
-  const config = getConfig(c.env);
-  const raw = generateRawToken();
-  const tokenHash = await hashToken(raw);
-  const ts = now();
-  await c.env.DB.prepare(
-    "INSERT INTO magic_link_tokens (id, email, token_hash, expires_at, used_at, created_at) VALUES (?1, ?2, ?3, ?4, NULL, ?5)",
-  )
-    .bind(uuidv7(), email, tokenHash, ts + AUTH.MAGIC_LINK_TTL_SEC * 1000, ts)
-    .run();
+const magicLinkEmailKey = (c: Context<HonoEnv>) => `ml:email:${(c.get("body") as z.infer<typeof MagicLinkBody>).email}`;
+const magicLinkIpKey = (c: Context<HonoEnv>) => `ml:ip:${c.req.header("CF-Connecting-IP") ?? "unknown"}`;
 
-  const link = `${config.APP_URL}/auth/verify?token=${raw}`;
-  await getSender(c.env).send({
-    from: `SuperProfile <no-reply@${config.SEND_DOMAIN}>`,
-    to: email,
-    subject: "Sign in to SuperProfile",
-    text: `Sign in to SuperProfile:\n\n${link}\n\nThis link expires in 10 minutes.`,
-    html: `<p>Sign in to SuperProfile:</p><p><a href="${link}">${link}</a></p><p>This link expires in 10 minutes.</p>`,
-  });
+authApi.post(
+  "/magic-link",
+  validate(MagicLinkBody, "json"),
+  rateLimit(magicLinkEmailKey, RATE_LIMIT.MAGIC_LINK.PER_EMAIL, RATE_LIMIT.MAGIC_LINK.WINDOW_SEC),
+  rateLimit(magicLinkIpKey, RATE_LIMIT.MAGIC_LINK.PER_IP, RATE_LIMIT.MAGIC_LINK.WINDOW_SEC),
+  async (c) => {
+    const { email } = c.get("body") as z.infer<typeof MagicLinkBody>;
+    const config = getConfig(c.env);
+    const raw = generateRawToken();
+    const tokenHash = await hashToken(raw);
+    const ts = now();
+    await c.env.DB.prepare(
+      "INSERT INTO magic_link_tokens (id, email, token_hash, expires_at, used_at, created_at) VALUES (?1, ?2, ?3, ?4, NULL, ?5)",
+    )
+      .bind(uuidv7(), email, tokenHash, ts + AUTH.MAGIC_LINK_TTL_SEC * 1000, ts)
+      .run();
 
-  const debugHeader = c.req.header("X-Debug-Auth");
-  if (debugHeader && debugHeader === c.env.DEBUG_AUTH_SECRET) {
-    return ok(c, { debugToken: raw });
-  }
-  return ok(c);
-});
+    const link = `${config.APP_URL}/auth/verify?token=${raw}`;
+    await getSender(c.env).send({
+      from: `SuperProfile <no-reply@${config.SEND_DOMAIN}>`,
+      to: email,
+      subject: "Sign in to SuperProfile",
+      text: `Sign in to SuperProfile:\n\n${link}\n\nThis link expires in 10 minutes.`,
+      html: `<p>Sign in to SuperProfile:</p><p><a href="${link}">${link}</a></p><p>This link expires in 10 minutes.</p>`,
+    });
+
+    const debugHeader = c.req.header("X-Debug-Auth");
+    if (debugHeader && debugHeader === c.env.DEBUG_AUTH_SECRET) {
+      return ok(c, { debugToken: raw });
+    }
+    return ok(c);
+  },
+);
 
 authApi.post("/verify", validate(VerifyBody, "json"), async (c) => {
   const { token } = c.get("body") as z.infer<typeof VerifyBody>;

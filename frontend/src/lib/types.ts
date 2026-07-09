@@ -100,3 +100,5 @@ export type KbArticle = {
 };
 
 export type KbSearchHit = { id: string; title: string; slug: string };
+
+export type Summary = { summary: string; generatedAt: number; cached: boolean };

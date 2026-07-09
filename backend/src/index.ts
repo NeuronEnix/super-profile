@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import type { Env } from "./types";
 import type { HonoEnv } from "./common/hono-env";
 import { ok, registerErrorHandler } from "./common/envelope";
 import { ctxErr } from "./ctx/ctx.error";
@@ -14,15 +13,10 @@ import { emailApi } from "./email/email.api";
 import { handleEmailWorker } from "./email/email.worker";
 import { kbApi } from "./kb/kb.api";
 import { kbPublicApi } from "./kb/public.api";
+import { aiApi } from "./ai/ai.api";
 
 export { WorkspaceHub } from "./realtime/hub";
-
-export class RateLimiter {
-  constructor(_state: DurableObjectState, _env: Env) {}
-  async fetch(): Promise<Response> {
-    return new Response("ok");
-  }
-}
+export { RateLimiter } from "./ratelimit/limiter";
 
 const app = new Hono<HonoEnv>();
 
@@ -41,6 +35,7 @@ app.route("/api/v1/ws-connect", wsConnectApi);
 app.route("/api/v1/email", emailApi);
 app.route("/api/v1/ws/:wsId", kbApi);
 app.route("/api/v1/public/kb", kbPublicApi);
+app.route("/api/v1/ws/:wsId", aiApi);
 
 // Any /api/v1/* path that didn't match a real route is a genuine 404 — must not
 // fall through to the SPA asset fallback below.

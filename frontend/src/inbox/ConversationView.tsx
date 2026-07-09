@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../lib/api";
 import { useToast } from "../components/Toast";
 import { ContactPanel } from "./ContactPanel";
+import { SummaryPanel } from "./SummaryPanel";
 import { Composer } from "./Composer";
 import type { Conversation, ConversationSnapshot, Member, Message, WsEvent } from "../lib/types";
 
@@ -257,8 +258,9 @@ export function ConversationView({
         <Composer onSend={handleSend} onTyping={handleTyping} />
       </div>
 
-      <div className="w-64 shrink-0 border-l border-slate-200 bg-white">
+      <div className="w-64 shrink-0 overflow-y-auto border-l border-slate-200 bg-white">
         <ContactPanel contact={conversation.contact} />
+        <SummaryPanel wsId={wsId} conversationId={conversationId} messageCount={conversation.messageCount} />
       </div>
     </div>
   );

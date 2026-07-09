@@ -1,15 +1,20 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { ok } from "../common/envelope";
 import { ctxErr } from "../ctx/ctx.error";
 import { validate } from "../middleware/validate";
 import { widgetAuthMiddleware } from "../middleware/widget-auth";
+import { rateLimit } from "../middleware/rate-limit";
 import { now, uuidv7 } from "../common/id";
+import { RATE_LIMIT } from "../common/const";
 import { signWidgetToken } from "../auth/token";
 import { sendMessage, markRead } from "../realtime/hub";
 import { resolveContact } from "../contacts/contacts.service";
 import { searchArticles } from "../kb/search";
 import type { HonoEnv } from "../common/hono-env";
+
+const widgetMsgKey = (c: Context<HonoEnv>) => `widget:${c.get("widgetUserId")}`;
+const widgetMsgLimit = rateLimit(widgetMsgKey, RATE_LIMIT.WIDGET_MSG.PER_USER, RATE_LIMIT.WIDGET_MSG.WINDOW_SEC);
 
 const BootBody = z.object({
   widgetKey: z.string().min(1),
@@ -113,7 +118,7 @@ widgetApi.get("/conversations/:id/messages", validate(MessagesQuery, "query"), a
   return ok(c, { messages: results.reverse() });
 });
 
-widgetApi.post("/conversations", widgetAuthMiddleware, validate(PostMessageBody, "json"), async (c) => {
+widgetApi.post("/conversations", widgetAuthMiddleware, validate(PostMessageBody, "json"), widgetMsgLimit, async (c) => {
   const workspaceId = c.get("widgetWorkspaceId");
   const userId = c.get("widgetUserId");
   const { body } = c.get("body") as z.infer<typeof PostMessageBody>;
@@ -133,7 +138,7 @@ widgetApi.post("/conversations", widgetAuthMiddleware, validate(PostMessageBody,
   return ok(c, out);
 });
 
-widgetApi.post("/conversations/:id/messages", validate(PostMessageBody, "json"), async (c) => {
+widgetApi.post("/conversations/:id/messages", validate(PostMessageBody, "json"), widgetMsgLimit, async (c) => {
   const workspaceId = c.get("widgetWorkspaceId");
   const userId = c.get("widgetUserId");
   const id = c.req.param("id");

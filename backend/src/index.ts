@@ -5,6 +5,8 @@ import { ok, registerErrorHandler } from "./common/envelope";
 import { ctxErr } from "./ctx/ctx.error";
 import { logger } from "./middleware/logger";
 import { authApi } from "./auth/auth.api";
+import { workspacesApi, workspaceSettingsApi } from "./workspaces/workspaces.api";
+import { teamApi } from "./team/team.api";
 
 export class WorkspaceHub {
   constructor(_state: DurableObjectState, _env: Env) {}
@@ -28,6 +30,9 @@ registerErrorHandler(app);
 app.get("/api/v1/health", (c) => ok(c, { ts: Date.now() }));
 
 app.route("/api/v1/auth", authApi);
+app.route("/api/v1/workspaces", workspacesApi);
+app.route("/api/v1/ws/:wsId", workspaceSettingsApi);
+app.route("/api/v1/ws/:wsId", teamApi);
 
 // Any /api/v1/* path that didn't match a real route is a genuine 404 — must not
 // fall through to the SPA asset fallback below.

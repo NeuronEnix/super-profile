@@ -101,6 +101,41 @@ authApi.post("/logout", async (c) => {
   return ok(c);
 });
 
+const InviteAcceptBody = z.object({ token: z.string().min(1) });
+
+authApi.post("/invite-accept", authMiddleware, validate(InviteAcceptBody, "json"), async (c) => {
+  const { token } = c.get("body") as z.infer<typeof InviteAcceptBody>;
+  const userId = c.get("userId");
+  const tokenHash = await hashToken(token);
+  const ts = now();
+
+  const invite = await c.env.DB.prepare(
+    "SELECT workspace_id as workspaceId, email, role FROM invites WHERE token_hash=?1",
+  )
+    .bind(tokenHash)
+    .first<{ workspaceId: string; email: string; role: string }>();
+  await consumeToken(c.env.DB, tokenHash, ts, "invites", "accepted_at");
+  if (!invite) throw ctxErr.invite.notFound();
+
+  const user = await c.env.DB.prepare("SELECT email FROM users WHERE id=?1").bind(userId).first<{ email: string | null }>();
+  if (!user?.email || user.email !== invite.email) {
+    throw ctxErr.auth.notAuthorized({ msg: "This invite is for a different email address" });
+  }
+
+  await c.env.DB.prepare(
+    "INSERT INTO workspace_members (workspace_id, user_id, role, created_at) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (workspace_id, user_id) DO UPDATE SET role=excluded.role",
+  )
+    .bind(invite.workspaceId, userId, invite.role, ts)
+    .run();
+
+  const workspace = await c.env.DB.prepare(
+    "SELECT id, name, slug FROM workspaces WHERE id=?1",
+  )
+    .bind(invite.workspaceId)
+    .first();
+  return ok(c, { workspace });
+});
+
 authApi.get("/me", authMiddleware, async (c) => {
   const userId = c.get("userId");
   const user = await c.env.DB.prepare("SELECT id, email, name FROM users WHERE id=?1")

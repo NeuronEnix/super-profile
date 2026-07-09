@@ -28,16 +28,17 @@ export async function consumeToken(
   tokenHash: string,
   timestamp: number,
   table: string,
+  usedColumn: string = "used_at",
 ): Promise<void> {
   const res = await db
     .prepare(
-      `UPDATE ${table} SET used_at=?1 WHERE token_hash=?2 AND used_at IS NULL AND expires_at>?1`,
+      `UPDATE ${table} SET ${usedColumn}=?1 WHERE token_hash=?2 AND ${usedColumn} IS NULL AND expires_at>?1`,
     )
     .bind(timestamp, tokenHash)
     .run();
   if (res.meta.changes !== 1) {
     const row = await db
-      .prepare(`SELECT expires_at, used_at FROM ${table} WHERE token_hash=?1`)
+      .prepare(`SELECT expires_at, ${usedColumn} as used_at FROM ${table} WHERE token_hash=?1`)
       .bind(tokenHash)
       .first<{ expires_at: number; used_at: number | null }>();
     throw !row ? ctxErr.auth.invalidToken() : ctxErr.auth.tokenExpired();

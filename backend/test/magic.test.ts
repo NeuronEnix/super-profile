@@ -45,4 +45,11 @@ describe("consumeToken", () => {
       name: "TOKEN_EXPIRED",
     });
   });
+
+  it("supports a custom used-column name (invites use accepted_at, not used_at)", async () => {
+    const db = fakeDb({ changes: 1, row: null });
+    await consumeToken(db, "hash", 1000, "invites", "accepted_at");
+    expect(db.prepare).toHaveBeenCalledWith(expect.stringContaining("accepted_at"));
+    expect(db.prepare).not.toHaveBeenCalledWith(expect.stringContaining("used_at"));
+  });
 });

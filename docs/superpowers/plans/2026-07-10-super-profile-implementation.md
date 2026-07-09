@@ -279,8 +279,8 @@ if (res.meta.changes !== 1) {
 
 **Interfaces produced:** endpoints per init.md §6 (workspaces create/list/patch; invites CRUD; members list/patch/delete). Workspace create: slug = slugify(name) + `-xxxx` suffix on collision; `widget_key = "wk_" + uuidv7 (no dashes)`; creator gets ADMIN membership row (same D1 batch). Invite: token like magic link (store hash), email via sender with link `${APP_URL}/invite?token=...`; `POST /auth/invite-accept {token}` (Bearer) consumes (same atomic pattern, TTL 7d) → upsert membership with invite role → `{workspace}`. Rules: PATCH/DELETE members = ADMIN only; cannot demote/remove the last ADMIN (400 `NOT_AUTHORIZED` with msg "Workspace needs at least one admin"); invite to email already a member → 400 (`workspace.slugTaken` NO — add `ctxErr.invite.alreadyMember` factory, msg "Already a member").
 
-- [ ] Implement + curl-verify the full flow with two debug users (A creates ws, invites B's email, B accepts, B listed as member, role change, removal guard).
-- [ ] Commit + push (`feat: workspaces, team management, invites`).
+- [x] Implement + curl-verify the full flow with two debug users (A creates ws, invites B's email, B accepts, B listed as member, role change, removal guard).
+- [x] Commit + push (`feat: workspaces, team management, invites`).
 
 ---
 

@@ -53,6 +53,9 @@ chat); everything after gets appended during the overnight run.
   endpoint is byte-identical to prod behavior. Evaluators unaffected.
 - **Rejected:** disabling auth in a test mode (diverges from what evaluators test); scraping
   Gmail via browser (flaky at 3am).
+- **Extended in Task 3:** the same `X-Debug-Auth` gate now also echoes the raw invite token from
+  `POST /ws/:wsId/invites` — same rationale (no mailbox access overnight), and it avoids sending
+  real Resend emails to made-up test addresses during verification.
 
 ## 5. Inbound email: per-workspace addresses + layered transport fallback
 
@@ -105,3 +108,26 @@ chat); everything after gets appended during the overnight run.
 - **Why it's safe:** functionally identical outcome to what the plan asked for (bogus API route →
   400 NOT_FOUND envelope); the mechanism differs only because of a Hono routing nuance the plan
   didn't anticipate.
+
+## 11. Workspace PATCH drops `supportEmail` (init.md contract vs. actual schema)
+
+- **Context:** init.md's API contract lists `PATCH /ws/:wsId {name?, widgetColor?, supportEmail?}`,
+  but the `workspaces` table (0001_init.sql) has no `support_email` column, and no other part of
+  the spec (email module, KB, widget) reads or writes a per-workspace support email — outbound
+  mail already uses `<slug>@notifications.hyugorix.com` unconditionally.
+- **Chosen:** implement PATCH with only `{name?, widgetColor?}`. Adding an unused column this late
+  risks a needless migration for a field nothing consumes.
+- **Why it's safe:** no feature depends on it; if evaluators want it, it's a one-column migration
+  away and the pattern (zod-validated partial PATCH) is already in place.
+
+## 12. Invite-accept requires the accepting user's verified email to match the invite
+
+- **Context:** init.md/plan don't explicitly say to cross-check emails on `POST
+  /auth/invite-accept` — only that the invite token itself is consumed atomically. But invite
+  tokens are bearer-style secrets; without an email check, anyone who obtains a leaked/guessed
+  invite token while logged into *any* account could join the target workspace.
+- **Chosen:** reject with `NOT_AUTHORIZED` ("This invite is for a different email address") unless
+  the authenticated user's `users.email` matches `invites.email` exactly.
+- **Why it's safe:** matches the invite's implied contract (an invite is *for* a specific email);
+  costs one extra SELECT; doesn't block the intended flow (recipient signs in via magic link with
+  the invited address, then accepts).

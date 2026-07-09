@@ -389,8 +389,8 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
 - Editor: two-pane markdown textarea + live preview (marked + DOMPurify), toolbar buttons (B/I/H2/link/list/code → insert md syntax at cursor), title, collection select, slug (auto from title, editable), Save draft / Publish buttons. List page: collections sidebar (create/rename), articles table w/ status chips.
 - Public (no auth, envelope API): `GET /api/v1/public/kb/:wsSlug` `{workspace:{name,widgetColor}, collections:[{...,articles:[{title,slug}]}]}` (PUBLISHED only) · `.../articles/:slug` full body_md · `.../search?q=` hits. Frontend routes `/kb/:wsSlug`, `/kb/:wsSlug/a/:slug` (rendered markdown, prose styling), search box with results dropdown. Resolve by Host header too (Task 12 wires custom domains through same handler — public KB API accepts `?host=` OR the Worker rewrites based on Host before ASSETS fallback; implement as: Hono middleware — if request Host matches an ACTIVE custom_domain, internally treat path `/` and `/a/:slug` as that workspace's KB routes).
 - Widget suggest: `GET /api/v1/widget/suggest?q=` (widget token) → top 3 published; TicketList search box + NewTicket composer (debounced 400ms while typing the first message) show suggestion cards (title + snippet) linking to public article (new tab).
-- [ ] Playwright kb.spec: create collection+article → publish → public page renders markdown (assert an `<h2>` from md) → search finds it → widget NewTicket typing "how do I reset" surfaces the article card.
-- [ ] Deploy + smoke on prod. Commit + push (`feat: markdown knowledge base with public site, search, widget suggestions`).
+- [x] Playwright kb.spec: create collection+article → publish → public page renders markdown (assert an `<h2>` from md) → search finds it → widget NewTicket typing "how do I reset" surfaces the article card.
+- [x] Deploy + smoke on prod. Commit + push (`feat: markdown knowledge base with public site, search, widget suggestions`).
 
 ---
 

@@ -10,6 +10,8 @@ import InboxPage from "./inbox/InboxPage";
 import KbAdminPage from "./kb/KbAdminPage";
 import SettingsPage from "./settings/SettingsPage";
 import WidgetApp from "./widget/WidgetApp";
+import KbHome from "./kb-public/KbHome";
+import KbArticle from "./kb-public/KbArticle";
 
 function FullscreenSpinner() {
   return <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">Loading…</div>;
@@ -36,6 +38,8 @@ function AppRoutes() {
       <Route path="/auth/verify" element={<Verify />} />
       <Route path="/invite" element={<InviteAccept />} />
       <Route path="/widget-app" element={<WidgetApp />} />
+      <Route path="/kb/:wsSlug" element={<KbHome />} />
+      <Route path="/kb/:wsSlug/a/:slug" element={<KbArticle />} />
       <Route
         path="/"
         element={

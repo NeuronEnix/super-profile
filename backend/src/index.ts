@@ -12,6 +12,8 @@ import { widgetApi } from "./widget/widget.api";
 import { wsConnectApi } from "./realtime/ws.api";
 import { emailApi } from "./email/email.api";
 import { handleEmailWorker } from "./email/email.worker";
+import { kbApi } from "./kb/kb.api";
+import { kbPublicApi } from "./kb/public.api";
 
 export { WorkspaceHub } from "./realtime/hub";
 
@@ -37,6 +39,8 @@ app.route("/api/v1/ws/:wsId", conversationsApi);
 app.route("/api/v1/widget", widgetApi);
 app.route("/api/v1/ws-connect", wsConnectApi);
 app.route("/api/v1/email", emailApi);
+app.route("/api/v1/ws/:wsId", kbApi);
+app.route("/api/v1/public/kb", kbPublicApi);
 
 // Any /api/v1/* path that didn't match a real route is a genuine 404 — must not
 // fall through to the SPA asset fallback below.

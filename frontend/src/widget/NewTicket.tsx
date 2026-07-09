@@ -1,20 +1,42 @@
-import { useState, type FormEvent } from "react";
-import type { Contact } from "../lib/types";
+import { useEffect, useState, type FormEvent } from "react";
+import { widgetApi } from "./widgetApi";
+import type { Contact, KbSearchHit } from "../lib/types";
 
 export function NewTicket({
   contact,
   widgetColor,
+  wsSlug,
   onBack,
   onCreate,
 }: {
   contact: Contact | null;
   widgetColor: string;
+  wsSlug: string;
   onBack: () => void;
   onCreate: (body: string) => Promise<void>;
 }) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [suggestions, setSuggestions] = useState<KbSearchHit[]>([]);
   const needsProfile = !contact?.name && !contact?.email;
+
+  useEffect(() => {
+    if (!message.trim() || message.trim().length < 4) {
+      setSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const data = await widgetApi<{ results: KbSearchHit[] }>(
+          `/api/v1/widget/suggest?q=${encodeURIComponent(message.trim())}`,
+        );
+        setSuggestions(data.results);
+      } catch {
+        setSuggestions([]);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [message]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -51,6 +73,25 @@ export function NewTicket({
           rows={5}
           className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
+
+        {suggestions.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-slate-500">You might find these helpful:</p>
+            {suggestions.map((s) => (
+              <a
+                key={s.id}
+                href={`/kb/${wsSlug}/a/${s.slug}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="block rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+              >
+                📄 {s.title}
+              </a>
+            ))}
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={sending || !message.trim()}

@@ -204,3 +204,31 @@ worth recording since they'd bite silently otherwise.
   against `wrangler dev`, then re-verified against prod — this is exactly the kind of thing that
   would have looked "fine" in a quick manual click-through but broken for evaluators the moment
   someone sent a second chat message.
+
+## 16. Two more real bugs found in Task 9 (KB), plus a test-flakiness fix
+
+- **`res.meta.changes` includes rows touched by the `kb_articles_fts` AFTER triggers, not just the
+  primary statement.** `POST .../kb/articles/:id/publish` and `DELETE .../kb/articles/:id` both
+  checked `res.meta.changes !== 1` to detect "not found" — but SQLite's change counter (which D1
+  exposes via `meta.changes`) includes rows modified by triggers fired as a side effect of the
+  statement, and the FTS5 sync triggers (0002_fts.sql) insert into `kb_articles_fts` on every
+  UPDATE/DELETE. So a real, successful publish/delete reported `changes > 1` and was
+  (wrongly) rejected as "not found". Caught by manually curling the dedicated `/publish` endpoint —
+  the frontend's own "Publish" button doesn't hit this endpoint at all (it uses a combined
+  create-then-PATCH-with-status flow instead), so `kb.spec.ts` never exercised the buggy code path.
+  **Fix:** both checks changed to `changes < 1` (any row touched means the target was found;
+  0 means it wasn't), which is correct regardless of how many trigger-driven writes ride along.
+- **Tailwind's `prose` classes were inert — `@tailwindcss/typography` was never installed.** The
+  admin editor's live preview and the public article page both used `prose`/`prose-sm` classes
+  assuming Tailwind's typography plugin, but it was never added as a dependency, so markdown
+  rendered as plain unstyled HTML (no heading sizes, no list bullets/indentation). Fixed by
+  installing `@tailwindcss/typography` and registering it via `@plugin "@tailwindcss/typography";`
+  in `index.css` (Tailwind v4's CSS-native plugin syntax, no JS config file needed). Confirmed
+  visually — headings and lists now render properly on both the editor preview and the public site.
+- **Playwright tests were flaky when run as a full suite (parallel), reliable one-by-one or
+  serialized.** Several tests hold live WebSocket connections with tight 5–10s timing assertions
+  against a shared `WorkspaceHub` DO; running multiple test files concurrently introduced
+  resource-contention races unrelated to product correctness (confirmed: every test passes
+  individually and passes serialized every time). Set `fullyParallel: false`, `workers: 1`,
+  `retries: 1` in `playwright.config.ts` so the Task 13 final sweep (and anyone re-running these
+  tests) gets a reliable signal instead of chasing test-harness flakiness.

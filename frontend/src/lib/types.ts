@@ -74,3 +74,29 @@ export type Message = {
   emailInReplyTo: string | null;
   createdAt: number;
 };
+
+export type ArticleStatus = "DRAFT" | "PUBLISHED";
+
+export type KbCollection = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  position: number;
+};
+
+export type KbArticle = {
+  id: string;
+  workspaceId: string;
+  collectionId: string | null;
+  title: string;
+  slug: string;
+  bodyMd: string;
+  status: ArticleStatus;
+  createdBy: string;
+  publishedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type KbSearchHit = { id: string; title: string; slug: string };

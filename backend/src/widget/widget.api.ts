@@ -8,6 +8,7 @@ import { now, uuidv7 } from "../common/id";
 import { signWidgetToken } from "../auth/token";
 import { sendMessage, markRead } from "../realtime/hub";
 import { resolveContact } from "../contacts/contacts.service";
+import { searchArticles } from "../kb/search";
 import type { HonoEnv } from "../common/hono-env";
 
 const BootBody = z.object({
@@ -19,6 +20,7 @@ const BootBody = z.object({
 
 const MessagesQuery = z.object({ afterId: z.string().optional(), limit: z.coerce.number().int().min(1).max(200).optional() });
 const PostMessageBody = z.object({ body: z.string().min(1).max(20_000) });
+const SuggestQuery = z.object({ q: z.string().min(1).max(200) });
 
 const CONVERSATION_COLS =
   "id, workspace_id as workspaceId, contact_id as contactId, channel, status, subject, last_message_at as lastMessageAt, last_message_preview as lastMessagePreview, message_count as messageCount, contact_last_read_at as contactLastReadAt, created_at as createdAt, updated_at as updatedAt";
@@ -58,10 +60,10 @@ export const widgetApi = new Hono<HonoEnv>();
 widgetApi.post("/boot", validate(BootBody, "json"), async (c) => {
   const { widgetKey, userId, email, name } = c.get("body") as z.infer<typeof BootBody>;
   const workspace = await c.env.DB.prepare(
-    "SELECT id, name, widget_color as widgetColor FROM workspaces WHERE widget_key=?1",
+    "SELECT id, name, slug, widget_color as widgetColor FROM workspaces WHERE widget_key=?1",
   )
     .bind(widgetKey)
-    .first<{ id: string; name: string; widgetColor: string }>();
+    .first<{ id: string; name: string; slug: string; widgetColor: string }>();
   if (!workspace) throw ctxErr.widget.invalidKey();
 
   const ts = now();
@@ -79,7 +81,7 @@ widgetApi.post("/boot", validate(BootBody, "json"), async (c) => {
     userId: resolvedUserId,
     token,
     contact,
-    workspace: { id: workspace.id, name: workspace.name, widgetColor: workspace.widgetColor },
+    workspace: { id: workspace.id, name: workspace.name, slug: workspace.slug, widgetColor: workspace.widgetColor },
     conversations: results,
   });
 });
@@ -157,4 +159,11 @@ widgetApi.post("/conversations/:id/read", async (c) => {
   await assertOwnedConversation(c.env.DB, id, workspaceId, userId);
   await markRead(c.env, workspaceId, id, "CONTACT");
   return ok(c);
+});
+
+widgetApi.get("/suggest", widgetAuthMiddleware, validate(SuggestQuery, "query"), async (c) => {
+  const workspaceId = c.get("widgetWorkspaceId");
+  const { q } = c.get("body") as z.infer<typeof SuggestQuery>;
+  const hits = await searchArticles(c.env.DB, workspaceId, q, 3);
+  return ok(c, { results: hits });
 });

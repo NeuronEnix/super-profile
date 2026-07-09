@@ -39,6 +39,8 @@ stretch features > visual polish**.
 | LLM | Workers AI binding, model const `@cf/meta/llama-3.3-70b-instruct-fp8-fast` — no API key |
 | Browser automation | claude-in-chrome MCP (user's real Chrome, logged into Gmail/Outlook/Cloudflare/Resend) — load via ToolSearch; if disconnected, use chrome-devtools-mcp (isolated) or Playwright |
 | DNS writes | wrangler token CANNOT write DNS. Use browser automation on dash.cloudflare.com (hyugorix.com only), else note in MORNING.md |
+| DNS ground rules | NEVER touch apex hyugorix.com records (MX = Microsoft 365, user's real email). Single-level subdomains only (`inbox.`, `notifications.`); NEVER nested subdomains (no Advanced Certificate Manager) |
+| Custom domains feature | DEFERRED overnight (user decision) — README approach only; plan Task 12 is the morning playbook |
 
 ## Secrets (names are contract — set via `wrangler secret put`, local in `backend/.dev.vars`)
 

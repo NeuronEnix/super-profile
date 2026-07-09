@@ -26,6 +26,7 @@ pnpm. No other runtime deps without a decision.md entry.
 - Every D1 query on tenant tables includes `workspace_id = ?` even when derivable via join.
 - Commit after every green step; push after every task; deploy after every phase-completing task.
 - Never commit secrets. Never touch the kaushikrb.com zone.
+- **DNS rules:** never modify apex `hyugorix.com` records (MX is Microsoft 365 — the user's real email). Only create records under single-level subdomains (`inbox.hyugorix.com`, `notifications.hyugorix.com`). NEVER create nested subdomains (`*.x.hyugorix.com`) — no Advanced Certificate Manager on this account (irrelevant for MX-only names, but the rule is absolute).
 - **Execution protocol per task:** read the task → do steps in order → run the verification commands and READ the output → tick checkboxes in this file → `git add -A && git commit` → push. If blocked >45 min on one step, take the task's Fallback, log it in decision.md, move on.
 
 ---
@@ -417,7 +418,13 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
 
 ---
 
-### Task 12: Custom domains (lite)
+### Task 12: Custom domains (lite) — **DEFERRED: DO NOT EXECUTE OVERNIGHT**
+
+> User decision (post-review): skip this feature tonight; it will be done in the morning with
+> the user. Overnight scope: (a) README "Custom domains" section explaining the full approach
+> (DoH TXT verification + Cloudflare-for-SaaS SSL) — that's part of Task 13; (b) the
+> `custom_domains` table already exists in the schema. Leave this task's checkboxes UNCHECKED
+> and skip straight to Task 13. The spec below stays as the morning playbook.
 
 **Files:** `backend/src/domains/domains.api.ts`, `src/domains/verify.ts`; `frontend/src/settings/DomainsPage.tsx`; Host-header middleware finalized (Task 9 hook).
 
@@ -443,7 +450,7 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
   - [ ] 4 Inbox filters (channel/status/assignee), assign/snooze/resolve, snooze auto-reopen
   - [ ] 5 KB: create/edit/publish markdown, categories, public page + search, widget auto-suggest
   - [ ] 6 AI summary on a long conversation; updates after new messages; fallback path renders when forced (temporarily bad model name locally to see 400 — do not deploy that)
-  - [ ] 7 Custom domain connect + DNS verify demo; SSL approach documented
+  - [ ] 7 Custom domains: approach fully documented in README (feature implementation deferred to morning per user — confirm MORNING.md carries the task)
   - [ ] Stretch present: canned responses, AI drafts (if Task 11 done)
   - [ ] Envelope discipline: spot-check 5 endpoints incl. errors (200/400 shapes)
   - [ ] README accurate; MORNING.md final status written; decision.md complete

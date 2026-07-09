@@ -73,15 +73,17 @@ constant `AI.MODEL` (easy swap). Rolling summary: last N messages + previous sum
 summary, cached in D1 keyed by message count so it only regenerates when the conversation grows,
 10s timeout + graceful "summary unavailable" fallback.
 
-**Custom domains: lite implementation.** The assignment lists it as non-negotiable but allows
-stubbing ("explain your approach even if you stub the DNS verification"), so we ship the honest
-middle: Settings → Custom domain page where a workspace enters `help.theirdomain.com`, gets the
-required DNS records (CNAME to the worker hostname + TXT `_sp-verify` with a token), and a
-Verify button that does a **real DNS lookup via DNS-over-HTTPS**
-(`https://1.1.1.1/dns-query?name=...&type=TXT`, `accept: application/dns-json`) → status
-PENDING_DNS/ACTIVE/FAILED. Public KB resolves by Host header against `custom_domains`. SSL
-provisioning (Cloudflare for SaaS custom hostnames API) is a documented stub behind an
-interface — the README explains exactly which API calls production would make.
+**Custom domains: deferred to the morning session (user decision).** Overnight, the feature is
+NOT built — only the README documents the approach: Settings page collects `help.theirdomain.com`
+→ shows required records (CNAME to the worker hostname + TXT `_sp-verify.<host>` with a token)
+→ Verify does a real DNS lookup via DNS-over-HTTPS (`https://cloudflare-dns.com/dns-query`,
+`accept: application/dns-json`) → PENDING_DNS/ACTIVE/FAILED; public KB resolves by Host header;
+SSL = Cloudflare for SaaS custom hostnames API (stub). The `custom_domains` table exists in the
+schema; the morning playbook is plan Task 12. MORNING.md carries the task.
+
+**DNS ground rules:** apex `hyugorix.com` records are never touched (MX → Microsoft 365, the
+user's real mail). Only single-level subdomains (`inbox.`, `notifications.`) get records; never
+nested subdomains (no Advanced Certificate Manager on the account).
 
 ---
 

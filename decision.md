@@ -19,7 +19,11 @@ chat); everything after gets appended during the overnight run.
 - **Why it's safe:** user's requirement was "React frontend, hosted on Cloudflare" — that holds;
   only the serving mechanism changed, in service of the user's own security design.
 
-## 2. Custom domains: full skip → "lite" implementation
+## 2. Custom domains: full skip → "lite" implementation — **SUPERSEDED by user**
+
+> User (before sleeping): skip entirely overnight; do it together in the morning. Overnight
+> deliverable = README approach section only. Plan Task 12 kept as the morning playbook,
+> marked DO-NOT-EXECUTE. Original reasoning below for the record.
 
 - **Context:** User said skip. But the assignment marks all 7 features non-negotiable
   ("Partial submissions will not be reviewed") while explicitly allowing a stub:

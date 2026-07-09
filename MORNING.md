@@ -11,6 +11,12 @@ Things that need your hands or your judgment. The overnight run appends here; it
 
 ## Actions for you
 
+- [ ] `[seeded]` **Custom domains feature (deferred by you):** we build it together in the
+      morning — the ready playbook is Task 12 in
+      `docs/superpowers/plans/2026-07-10-super-profile-implementation.md` (connect UI + real
+      DoH TXT verification + Host-header KB resolution; SSL stays a documented
+      Cloudflare-for-SaaS stub). ~1.5h. The README already explains the approach, so the
+      submission is defensible even if we run out of time.
 - [ ] `[seeded]` **Optional — pretty support address:** in M365 admin, set shared mailbox
       `support@hyugorix.com` to forward to `<your-workspace-slug>@inbox.hyugorix.com`.
       Microsoft blocks external forwarding by default: Security (Defender) → Policies →

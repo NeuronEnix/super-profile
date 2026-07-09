@@ -359,8 +359,8 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
 - `api<T>(path, {method, body, accessTokenRef}): Promise<T>` — unwraps envelope; non-"OK" → throws `ApiError {code, msg}`; on `EXPIRED_ACCESS_TOKEN`/`INVALID_ACCESS_TOKEN` → one `POST /api/v1/auth/refresh` (credentials:"include") then retry once, else redirect /login. **Access token in a module-level ref only — never storage.** Toast component renders any ApiError.msg verbatim (user rule).
 - AuthContext: `{user, workspaces, activeWs, accessToken}`; boot = try refresh → me. Routes: `/login` (email → "check your inbox" state), `/auth/verify` (reads ?token → POST verify → store token in memory → navigate), `/invite` (needs login → accept → switch ws), `/w/:wsId/*` (protected, Shell), `/kb/:wsSlug/*` (public, Task 9), `/widget-app` (Task 8, no Shell).
 - Design: load `frontend-design:frontend-design` skill for this task + Tasks 8–9 UI. Direction: clean neutral SaaS (Linear-meets-Intercom); Tailwind, system font stack + `Inter` via @fontsource? NO external fonts needed — system stack; slate/indigo palette (widget_color accent); 13–14px dense UI; generous empty states.
-- [ ] Build → wrangler dev → Playwright `e2e/tests/auth.spec.ts`: login via debug header (request magic-link with `X-Debug-Auth` from env `DEBUG_AUTH_SECRET`, then drive /auth/verify?token=...), assert dashboard shell renders with workspace name; logout works.
-- [ ] Commit + push (`feat: frontend shell, auth flow, api client with silent refresh`).
+- [x] Build → wrangler dev → Playwright `e2e/tests/auth.spec.ts`: login via debug header (request magic-link with `X-Debug-Auth` from env `DEBUG_AUTH_SECRET`, then drive /auth/verify?token=...), assert dashboard shell renders with workspace name; logout works.
+- [x] Commit + push (`feat: frontend shell, auth flow, api client with silent refresh`).
 
 ---
 

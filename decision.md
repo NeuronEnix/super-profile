@@ -161,3 +161,15 @@ chat); everything after gets appended during the overnight run.
   allows stubbing with an honest explanation. Real transport setup (enabling Cloudflare Email
   Routing at the apex, which needs the user's explicit go-ahead since it's their real work email)
   is now a MORNING.md task.
+
+## 14. Team-management UI lives on the "Settings" page, built in Task 7 (no dedicated task existed)
+
+- **Context:** the plan's task list never assigns a frontend task to invites/team-management UI —
+  Shell's sidebar has a "Settings" nav item (Task 7) but no task builds its contents, even though
+  invite/role-management is required assignment feature #1 and the backend (Task 3) was already
+  complete.
+- **Chosen:** built a real (not placeholder) `SettingsPage` in Task 7 — workspace rename,
+  members list with role change/remove (ADMIN-gated) and last-admin guard reflected via the
+  existing 400 errors, invite form + pending-invites list with revoke.
+- **Why it's safe:** the backend contract was already finalized in Task 3; this just fills a real
+  gap in task coverage rather than adding scope beyond the assignment's non-negotiable feature 1.

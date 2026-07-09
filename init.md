@@ -12,19 +12,31 @@ Stack decisions (locked): **Workers + Hono (TypeScript)** backend, **D1** databa
 
 ```
 super-profile/
-├── backend/            # Hono on Workers — API + WebSockets + Email handler
+├── backend/            # THE Worker: Hono API + WS + email() + serves frontend/dist
 │   ├── src/
 │   ├── migrations/     # D1 SQL migrations (wrangler d1 migrations)
+│   ├── test/           # vitest unit tests
 │   └── wrangler.jsonc
-├── frontend/           # React + Vite + Tailwind → Cloudflare Pages
-│   └── src/            # dashboard, public KB site, auth pages
-└── widget/             # embeddable chat widget — Preact, single ~25KB bundle
-    └── src/            # served by the Worker at /widget.js + demo.html
+├── frontend/           # React + Vite + Tailwind SPA → built to dist/, served by the Worker
+│   ├── public/         # widget.js (vanilla loader) + demo.html (verbatim static assets)
+│   └── src/            # dashboard, public KB, auth pages, /widget-app (iframe UI)
+└── e2e/                # Playwright tests (run against local wrangler dev or prod URL)
 ```
 
-**One Worker** does everything: the Hono REST API, WebSocket upgrades, and the `email()` handler
-for inbound mail. Bindings: **D1** (source of truth), **R2** (email/chat attachments),
-**Workers AI** (summaries), Durable Object classes, plus secrets (`RESEND_API_KEY`, JWT secrets).
+**One Worker, one origin.** The Worker serves the Hono REST API, WebSocket upgrades, the
+`email()` handler, AND the built React SPA via **Workers Static Assets**
+(`not_found_handling: "single-page-application"`, `run_worker_first: true` with an explicit
+`ASSETS` fallback route in Hono). Same-origin app+API means the SameSite=Strict refresh cookie
+works with zero CORS for the dashboard (Pages hosting would have made it a third-party cookie
+and silently broken auth — see decision.md). Bindings: **D1** (source of truth), **R2**
+(attachments), **Workers AI**, Durable Objects, `ASSETS`, plus secrets.
+
+**Widget embed architecture:** `/widget.js` is a tiny dependency-free vanilla loader (<2KB,
+lives in `frontend/public/`) that injects a floating button and lazily creates an **iframe**
+pointing to `/widget-app?key=<widgetKey>` (a route of the same React SPA). Iframe = full CSS/JS
+isolation on host pages, zero host-page bundle cost until opened, and same-origin API/WS from
+inside the iframe. Visitor identity persists in the iframe's localStorage (partitioned per host
+site by browsers — per-site persistence, which is correct behavior).
 
 **Durable Objects usage** (used wherever serialization/state helps, D1 stays source of truth):
 - `WorkspaceHub` (one per workspace) — WebSocket hub with the **hibernation API**. Dashboard
@@ -37,20 +49,39 @@ for inbound mail. Bindings: **D1** (source of truth), **R2** (email/chat attachm
 - Magic-link one-time use is enforced in **D1** with an atomic conditional UPDATE (D1 serializes
   writes, so no DO is needed for this).
 
-**Email flow:** Cloudflare Email Routing → `email()` handler → parse with `postal-mime` →
-thread-match via `In-Reply-To`/`References` against stored `Message-ID`s
-(fallback: `reply+<conversationId>@domain` plus-addressing) → insert into D1 → notify DO.
-Outbound via Resend with our own `Message-ID` and correct `In-Reply-To` headers, behind a small
-`EmailSender` interface. A secret-protected `POST /email/inbound` simulator endpoint allows
-end-to-end threading tests before Email Routing is configured.
+**Email flow — per-workspace addressing on `inbox.hyugorix.com`:**
+- Every workspace gets an inbound address **`<wsSlug>@inbox.hyugorix.com`** (shown in
+  Settings → Email). A catch-all on that subdomain hits the Worker; the local part resolves the
+  workspace. Threading fallback: outbound replies set
+  `Reply-To: <wsSlug>+<conversationId>@inbox.hyugorix.com` (plus-addressing), so replies thread
+  deterministically even if a provider rewrites Message-IDs.
+- **Inbound transport, in order of preference:** (1) Cloudflare Email Routing subdomain
+  catch-all → `email()` handler (`postal-mime` parse); (2) if subdomain routing is
+  plan-gated: **Resend Inbound** (MX for inbox.hyugorix.com → Resend, webhook → our endpoint);
+  (3) always available: secret-protected `POST /api/v1/email/inbound` simulator. All three
+  converge on one `ingestInboundEmail()` function.
+- **Thread matching:** plus-address conversationId → else `In-Reply-To`/`References` matched
+  against stored `messages.email_message_id` (workspace-scoped) → else new conversation.
+- **Outbound** via Resend (`EmailSender` interface): From
+  `"<Workspace Name>" <wsSlug@notifications.hyugorix.com>` (any local part on the verified
+  domain), our own Message-ID + In-Reply-To/References headers, Reply-To plus-address.
+- MX/DNS changes the wrangler token can't make (zone scope is read-only) are done via browser
+  automation on the Cloudflare dashboard — **hyugorix.com zone only**.
 
 **AI:** Workers AI, Llama 3.3 70B (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`), kept as a single
 constant `AI.MODEL` (easy swap). Rolling summary: last N messages + previous summary → new
 summary, cached in D1 keyed by message count so it only regenerates when the conversation grows,
 10s timeout + graceful "summary unavailable" fallback.
 
-**Custom domains: skipped** (per decision). The approach (DoH DNS verification + Cloudflare for
-SaaS custom hostnames for SSL) is documented in the README only; no table, no API, no UI.
+**Custom domains: lite implementation.** The assignment lists it as non-negotiable but allows
+stubbing ("explain your approach even if you stub the DNS verification"), so we ship the honest
+middle: Settings → Custom domain page where a workspace enters `help.theirdomain.com`, gets the
+required DNS records (CNAME to the worker hostname + TXT `_sp-verify` with a token), and a
+Verify button that does a **real DNS lookup via DNS-over-HTTPS**
+(`https://1.1.1.1/dns-query?name=...&type=TXT`, `accept: application/dns-json`) → status
+PENDING_DNS/ACTIVE/FAILED. Public KB resolves by Host header against `custom_domains`. SSL
+provisioning (Cloudflare for SaaS custom hostnames API) is a documented stub behind an
+interface — the README explains exactly which API calls production would make.
 
 ---
 
@@ -82,6 +113,12 @@ No passwords anywhere. Signup and login are the same flow.
 - `POST /auth/logout` → clears the cookie (access token just expires).
 - CSRF on mutating APIs: they accept **only** the Bearer access token, never cookies → immune to
   classic CSRF by construction.
+
+**Autonomous-testing backdoor (prod-safe):** a `DEBUG_AUTH_SECRET` Worker secret exists; when
+`POST /auth/magic-link` carries header `X-Debug-Auth: <that secret>`, the response `data`
+additionally includes the raw magic token so automated E2E tests (Playwright) can log in against
+local AND deployed environments without a mailbox. The secret is never committed; requests
+without the header behave identically to production. Evaluators are unaffected.
 
 **Rate limiting (flag-gated, not enforced by default)**
 `/auth/magic-link` limited per **email** (e.g. 3/10 min) and per **IP** (e.g. 10/10 min) via the
@@ -214,6 +251,11 @@ kb_articles         id, workspace_id, collection_id, title, slug,
                     UNIQUE(workspace_id, slug)
 
 kb_articles_fts     FTS5(title, body_text)      -- powers public search + widget auto-suggest
+                    -- separate migration; if D1 rejects FTS5, searchArticles() falls back to LIKE
+
+custom_domains      id, workspace_id, hostname UNIQUE, verification_token,
+                    status CHECK(status IN ('PENDING_DNS','ACTIVE','FAILED')),
+                    ssl_status DEFAULT 'STUBBED', verified_at NULL, created_at
 
 canned_responses    id, workspace_id, title, body, tags, created_by, created_at  -- stretch
 ```
@@ -231,7 +273,8 @@ not per message). Email threading lives in `messages.email_message_id` / `email_
 | `team` | member list, invites, role changes, removal (ADMIN-only) |
 | `workspaces` | create (multiple per user), list mine, settings; membership+role middleware |
 | `conversations` | unified inbox queries (filter by channel/status/assignee), assign/snooze/resolve, message CRUD, read watermarks |
-| `realtime` | `WorkspaceHub` DO — WS auth, hibernation, ordered write+broadcast, typing/presence, reconnect protocol |
+| `realtime` | `WorkspaceHub` DO — WS auth, hibernation, ordered write+broadcast, typing/presence, reconnect protocol. **Contact isolation rule: widget sockets receive events ONLY for conversations whose contact user_id matches their token; agent sockets get workspace-wide events.** |
+| `domains` | custom-domain lite — connect, DoH TXT verification, Host-header KB resolution, SSL stub |
 | `ratelimit` | `RateLimiter` DO + middleware, active only behind `FLAG.RATE_LIMIT_ENABLED` |
 | `widget` | public widget endpoints — widget session tokens (signed), conversation history, KB suggest; serves `widget.js` and the demo page |
 | `email` | inbound parse + thread matching, outbound `EmailSender` (Resend impl + stub), magic-link mails, simulator endpoint |
@@ -334,10 +377,20 @@ server → client: MESSAGE_CREATED · TYPING {START|STOP} · PRESENCE {ONLINE|OF
 client → server: TYPING, READ; everything else flows through REST → DO
 ```
 
+### Custom domains (Bearer, workspace-scoped, ADMIN)
+```
+POST   /ws/:wsId/domains           {hostname}   → data: {records: {cname, txtName, txtValue}, domain}
+POST   /ws/:wsId/domains/:id/verify             → real DoH TXT check → ACTIVE | FAILED
+DELETE /ws/:wsId/domains/:id
+GET    /ws/:wsId/domains
+```
+
 ### Email
 ```
-POST   /email/inbound              (secret header; simulates Email Routing for testing)
-email() worker handler             (real inbound once Email Routing is configured)
+POST   /api/v1/email/inbound       (X-Inbound-Secret header; simulator + Resend-Inbound webhook target)
+email() worker handler             (Cloudflare Email Routing catch-all on inbox.hyugorix.com)
+Inbound address per workspace:     <wsSlug>@inbox.hyugorix.com
+Reply-To on outbound:              <wsSlug>+<conversationId>@inbox.hyugorix.com
 ```
 
 ---
@@ -346,9 +399,18 @@ email() worker handler             (real inbound once Email Routing is configure
 
 **Stretch features planned:** canned responses, AI draft replies (cheap once `ai` + inbox exist).
 
-**Skipped (documented in README, not built):** custom domains (approach: DoH DNS verification +
-Cloudflare for SaaS for SSL), webhooks / REST API keys, SLA tracking, analytics dashboard,
-contact page-visit tracking.
+**Lite (working demo + documented stub):** custom domains — real DoH DNS verification and
+Host-header KB resolution; SSL provisioning stubbed with the Cloudflare-for-SaaS approach in the
+README.
+
+**Skipped (documented in README, not built):** webhooks / REST API keys, SLA tracking,
+analytics dashboard, contact page-visit tracking, R2 attachment UI if time runs out
+(table + R2 binding exist).
+
+**Conversation behavior rules:** SNOOZED conversations flip back to OPEN lazily once
+`snoozed_until` passes (computed at read time — no cron); any new CONTACT message on a
+SNOOZED/RESOLVED conversation reopens it to OPEN with a SYSTEM message. Subject for CHAT
+conversations = first message truncated to 80 chars; for EMAIL = the mail subject.
 
 **Flag-gated:** rate limiting (`FLAG.RATE_LIMIT_ENABLED`, hardcoded, default `false`).
 

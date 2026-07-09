@@ -148,9 +148,24 @@ All tenant tables carry `workspace_id`; every query is scoped by it (tenant isol
 **All IDs are UUIDv7** (time-ordered — doubles as a stable sort key).
 **All enum-ish values are UPPERCASE** and mirrored in `const.ts`.
 
+**Identity model — one global `user_id` for everyone.** Every person (agent, widget visitor,
+email sender) is identified by a single global UUIDv7, allocated at **first touch**:
+
+- **Widget visitor**: on first boot the widget proposes a client-generated id (or none). The
+  backend checks it against **both** `users.id` and `contacts.user_id`; if unused it is accepted,
+  otherwise (or if absent) the backend mints a fresh UUIDv7. **The frontend always persists
+  whatever id the backend returns** (localStorage). On later boots the same id comes back with
+  the contact's conversation history.
+- **Email sender**: first inbound email allocates a `user_id` for that contact the same way.
+- **Login/membership**: when a person authenticates via magic link and has no `users` row yet,
+  we adopt their pre-allocated identity — `users.id` is created **equal to** the existing
+  `contacts.user_id` matched by email (if any, and not already taken) — so all existing
+  conversations/contact rows keep pointing at the same person. No id migration ever.
+
 ```sql
 users               id, email UNIQUE, name, last_seen_at, created_at
                     -- global identity; no password; belongs to N workspaces
+                    -- id may be pre-allocated by a contact identity (see above)
 
 workspaces          id, name, slug UNIQUE, widget_key UNIQUE, widget_color,
                     support_email, created_by, created_at
@@ -165,9 +180,10 @@ magic_link_tokens   id, email, token_hash UNIQUE, expires_at, used_at NULL, crea
 invites             id, workspace_id, email, role, token_hash UNIQUE, expires_at,
                     accepted_at NULL, created_by, created_at
 
-contacts            id, workspace_id, email, name, anon_id,  -- anon_id: widget localStorage UUID
-                    last_seen_at, created_at
-                    UNIQUE(workspace_id, email), UNIQUE(workspace_id, anon_id)
+contacts            id, workspace_id, user_id,   -- global identity UUIDv7 (no anon_id column)
+                    email NULL, name NULL, last_seen_at, created_at
+                    UNIQUE(workspace_id, user_id), UNIQUE(workspace_id, email)
+                    -- user_id is NOT an FK: the users row may not exist yet (anonymous visitor)
 
 conversations       id, workspace_id, contact_id,
                     channel CHECK(channel IN ('CHAT','EMAIL')),
@@ -226,6 +242,13 @@ Frontend modules: `auth` (email entry + verify landing, in-memory access token +
 `inbox` (list + conversation pane + composer), `kb-admin` (markdown editor with preview),
 `kb-public` (markdown-rendered help center), `settings` (workspaces, team, widget install
 snippet), plus the separate `widget` package.
+
+**Widget UX — ticket-style (à la Bylon / Rentomojo):** opening the bubble shows the
+**conversation list** (each item titled by its subject or first-message snippet, with last
+message preview + unread dot), not a single chat. Tapping an item opens that conversation's
+messages; a **"New conversation"** button starts a fresh ticket for a new topic. First screen
+also hosts the KB auto-suggest search. State machine: `home (list + search)` → `conversation`
+→ back to `home`; if the visitor has no conversations yet, `home` shows the composer directly.
 
 ---
 
@@ -291,7 +314,10 @@ GET    /public/kb/:wsSlug/search            ?q=             → FTS5
 
 ### Widget (public, signed widget token; CORS *)
 ```
-POST   /widget/boot                {widgetKey, anonId, email?, name?} → data: {token, contact, conversations}
+POST   /widget/boot                {widgetKey, userId?, email?, name?}
+                                   → data: {userId, token, contact, conversations}
+                                   -- userId echoed back if free, else a fresh UUIDv7;
+                                   -- widget always persists the returned userId
 GET    /widget/conversations/:id/messages
 POST   /widget/conversations       {body}                   → creates conversation + first message
 POST   /widget/conversations/:id/messages {body}

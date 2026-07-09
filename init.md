@@ -148,24 +148,24 @@ All tenant tables carry `workspace_id`; every query is scoped by it (tenant isol
 **All IDs are UUIDv7** (time-ordered — doubles as a stable sort key).
 **All enum-ish values are UPPERCASE** and mirrored in `const.ts`.
 
-**Identity model — one global `user_id` for everyone.** Every person (agent, widget visitor,
-email sender) is identified by a single global UUIDv7, allocated at **first touch**:
+**Identity model — everyone is a `users` row, created at first touch.** A "user" is simply a
+person: agent, widget visitor, or email sender. The **backend is the only id minter** (UUIDv7).
 
-- **Widget visitor**: on first boot the widget proposes a client-generated id (or none). The
-  backend checks it against **both** `users.id` and `contacts.user_id`; if unused it is accepted,
-  otherwise (or if absent) the backend mints a fresh UUIDv7. **The frontend always persists
-  whatever id the backend returns** (localStorage). On later boots the same id comes back with
-  the contact's conversation history.
-- **Email sender**: first inbound email allocates a `user_id` for that contact the same way.
-- **Login/membership**: when a person authenticates via magic link and has no `users` row yet,
-  we adopt their pre-allocated identity — `users.id` is created **equal to** the existing
-  `contacts.user_id` matched by email (if any, and not already taken) — so all existing
-  conversations/contact rows keep pointing at the same person. No id migration ever.
+- **Widget visitor (first boot)**: the widget may propose an id; the backend accepts it only if
+  it doesn't exist in `users`, otherwise it mints a fresh UUIDv7. Either way it **inserts a
+  `users` row immediately** (`email = NULL`) and returns the id — **the widget always persists
+  whatever the backend returns**. Later boots send that id back and get history.
+- **Verified email = one global identity.** Inbound email and magic-link login both
+  **upsert `users` by email** — proving you receive mail at an address always resolves to the
+  same `users` row, no matter how many workspaces you contact. (An email typed into the widget
+  is *unverified*: it's stored on the contact for display only and never claims a `users` row.)
+- **Roles are just relationships**: an "agent" is a user with a `workspace_members` row; a
+  "customer" is a user with a `contacts` row. Same person can be both.
 
 ```sql
-users               id, email UNIQUE, name, last_seen_at, created_at
-                    -- global identity; no password; belongs to N workspaces
-                    -- id may be pre-allocated by a contact identity (see above)
+users               id, email UNIQUE NULL, name, last_seen_at, created_at
+                    -- every person, created at first touch; email NULL = anonymous visitor
+                    -- email set only via verified flows (magic link / inbound mail)
 
 workspaces          id, name, slug UNIQUE, widget_key UNIQUE, widget_color,
                     support_email, created_by, created_at
@@ -180,10 +180,11 @@ magic_link_tokens   id, email, token_hash UNIQUE, expires_at, used_at NULL, crea
 invites             id, workspace_id, email, role, token_hash UNIQUE, expires_at,
                     accepted_at NULL, created_by, created_at
 
-contacts            id, workspace_id, user_id,   -- global identity UUIDv7 (no anon_id column)
+contacts            id, workspace_id, user_id REFERENCES users(id),
                     email NULL, name NULL, last_seen_at, created_at
                     UNIQUE(workspace_id, user_id), UNIQUE(workspace_id, email)
-                    -- user_id is NOT an FK: the users row may not exist yet (anonymous visitor)
+                    -- a user's profile *within* a workspace; one users row, N contacts
+                    -- (one per workspace they've contacted); real FK — users always exists
 
 conversations       id, workspace_id, contact_id,
                     channel CHECK(channel IN ('CHAT','EMAIL')),

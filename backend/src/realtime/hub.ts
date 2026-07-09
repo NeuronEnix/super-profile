@@ -317,62 +317,64 @@ export class WorkspaceHub {
 
     const current = await this.loadConversation(conversationId);
     const messageId = uuidv7();
-
-    await db
-      .prepare(
-        `INSERT INTO messages
-           (id, conversation_id, workspace_id, sender_type, sender_id, body_text, body_html,
-            email_message_id, email_in_reply_to, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
-      )
-      .bind(
-        messageId,
-        conversationId,
-        input.workspaceId,
-        input.senderType,
-        input.senderId,
-        input.bodyText,
-        input.bodyHtml ?? null,
-        input.emailMessageId ?? null,
-        input.emailInReplyTo ?? null,
-        ts,
-      )
-      .run();
-
     const reopen = shouldReopen(input.senderType, current.status);
     const nextStatus = reopen ? CONVERSATION.STATUS.OPEN : current.status;
 
-    await db
-      .prepare(
-        `UPDATE conversations
-         SET last_message_at=?1, last_message_preview=?2, message_count=message_count+1,
-             status=?3, snoozed_until=CASE WHEN ?3='OPEN' THEN NULL ELSE snoozed_until END,
-             updated_at=?1
-         WHERE id=?4`,
-      )
-      .bind(ts, truncatePreview(input.bodyText), nextStatus, conversationId)
-      .run();
-
-    let reopenMessageId: string | null = null;
-    if (reopen) {
-      reopenMessageId = uuidv7();
-      await db
+    // The message insert and the conversation-counter update are one logical unit — batch them
+    // so a crash between the two can never leave message_count/last_message_preview stale.
+    const statements = [
+      db
         .prepare(
           `INSERT INTO messages
              (id, conversation_id, workspace_id, sender_type, sender_id, body_text, body_html,
               email_message_id, email_in_reply_to, created_at)
-           VALUES (?1, ?2, ?3, 'SYSTEM', NULL, 'Conversation reopened', NULL, NULL, NULL, ?4)`,
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
         )
-        .bind(reopenMessageId, conversationId, input.workspaceId, ts)
-        .run();
-      await db
+        .bind(
+          messageId,
+          conversationId,
+          input.workspaceId,
+          input.senderType,
+          input.senderId,
+          input.bodyText,
+          input.bodyHtml ?? null,
+          input.emailMessageId ?? null,
+          input.emailInReplyTo ?? null,
+          ts,
+        ),
+      db
         .prepare(
-          `UPDATE conversations SET last_message_at=?1, last_message_preview='Conversation reopened',
-             message_count=message_count+1, updated_at=?1 WHERE id=?2`,
+          `UPDATE conversations
+           SET last_message_at=?1, last_message_preview=?2, message_count=message_count+1,
+               status=?3, snoozed_until=CASE WHEN ?3='OPEN' THEN NULL ELSE snoozed_until END,
+               updated_at=?1
+           WHERE id=?4`,
         )
-        .bind(ts, conversationId)
-        .run();
+        .bind(ts, truncatePreview(input.bodyText), nextStatus, conversationId),
+    ];
+
+    let reopenMessageId: string | null = null;
+    if (reopen) {
+      reopenMessageId = uuidv7();
+      statements.push(
+        db
+          .prepare(
+            `INSERT INTO messages
+               (id, conversation_id, workspace_id, sender_type, sender_id, body_text, body_html,
+                email_message_id, email_in_reply_to, created_at)
+             VALUES (?1, ?2, ?3, 'SYSTEM', NULL, 'Conversation reopened', NULL, NULL, NULL, ?4)`,
+          )
+          .bind(reopenMessageId, conversationId, input.workspaceId, ts),
+        db
+          .prepare(
+            `UPDATE conversations SET last_message_at=?1, last_message_preview='Conversation reopened',
+               message_count=message_count+1, updated_at=?1 WHERE id=?2`,
+          )
+          .bind(ts, conversationId),
+      );
     }
+
+    await db.batch(statements);
 
     const conversation = await this.loadConversation(conversationId);
     const message = await this.loadMessage(messageId);

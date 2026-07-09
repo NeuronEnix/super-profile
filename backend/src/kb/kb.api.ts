@@ -117,13 +117,19 @@ kbApi.patch("/kb/collections/:id", validate(CollectionPatchBody, "json"), async 
 kbApi.delete("/kb/collections/:id", async (c) => {
   const { workspaceId } = c.get("member");
   const id = c.req.param("id");
-  await c.env.DB.prepare("UPDATE kb_articles SET collection_id=NULL WHERE collection_id=?1 AND workspace_id=?2")
-    .bind(id, workspaceId)
-    .run();
-  const res = await c.env.DB.prepare("DELETE FROM kb_collections WHERE id=?1 AND workspace_id=?2")
-    .bind(id, workspaceId)
-    .run();
-  if (res.meta.changes !== 1) throw ctxErr.kb.collectionNotFound();
+  // Batched: unlinking articles and deleting the collection are one logical unit — a crash
+  // between the two would otherwise unlink articles from a collection that never actually goes away.
+  const [, deleteRes] = await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE kb_articles SET collection_id=NULL WHERE collection_id=?1 AND workspace_id=?2").bind(
+      id,
+      workspaceId,
+    ),
+    c.env.DB.prepare("DELETE FROM kb_collections WHERE id=?1 AND workspace_id=?2").bind(id, workspaceId),
+  ]);
+  // Within a db.batch(), D1's changes counter carries over trigger-driven writes from earlier
+  // statements in the same batch (here: the UPDATE's kb_articles_fts AFTER-trigger side effect),
+  // same gotcha as decision.md #16 — use < 1, not !== 1, to detect "not found".
+  if (deleteRes.meta.changes < 1) throw ctxErr.kb.collectionNotFound();
   return ok(c);
 });
 

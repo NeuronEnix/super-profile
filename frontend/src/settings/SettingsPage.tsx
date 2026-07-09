@@ -18,6 +18,15 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<Role>("AGENT");
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const snippet = ws ? `<script src="/widget.js" data-widget-key="${ws.widgetKey}"></script>` : "";
+
+  async function handleCopySnippet() {
+    await navigator.clipboard.writeText(snippet);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   const load = useCallback(async () => {
     if (!wsId) return;
@@ -104,6 +113,40 @@ export default function SettingsPage() {
         <h1 className="text-lg font-semibold text-slate-900">Settings</h1>
         <p className="mt-1 text-sm text-slate-500">Manage {ws.name}'s workspace and team.</p>
       </div>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Install the widget</h2>
+        <p className="mb-2 text-sm text-slate-500">
+          Paste this before <code className="rounded bg-slate-100 px-1 py-0.5">&lt;/body&gt;</code> on any site to
+          embed the chat widget:
+        </p>
+        <div className="flex items-start gap-2">
+          <code className="flex-1 whitespace-pre-wrap break-all rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+            {snippet}
+          </code>
+          <button
+            onClick={handleCopySnippet}
+            className="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800"
+          >
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-slate-400">
+          Try it now:{" "}
+          <a
+            href={`/demo.html?key=${ws.widgetKey}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-indigo-600 hover:underline"
+          >
+            open the demo storefront with your widget key
+          </a>
+          . Public knowledge base:{" "}
+          <a href={`/kb/${ws.slug}`} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">
+            /kb/{ws.slug}
+          </a>
+        </p>
+      </section>
 
       <section>
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Workspace</h2>

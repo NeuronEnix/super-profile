@@ -30,6 +30,7 @@ export default function InboxPage() {
   const { showError } = useToast();
   const [filters, setFilters] = useState<Filters>({ status: "OPEN" });
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversationsLoading, setConversationsLoading] = useState(true);
   const [members, setMembers] = useState<Member[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [presenceOnline, setPresenceOnline] = useState(0);
@@ -41,11 +42,14 @@ export default function InboxPage() {
     if (filters.channel) qs.set("channel", filters.channel);
     if (filters.status) qs.set("status", filters.status);
     if (filters.assigneeId) qs.set("assigneeId", filters.assigneeId);
+    setConversationsLoading(true);
     try {
       const data = await api<{ conversations: Conversation[] }>(`/api/v1/ws/${wsId}/conversations?${qs}`);
       setConversations(data.conversations);
     } catch (err) {
       showError(err instanceof ApiError ? err.message : "Something went wrong");
+    } finally {
+      setConversationsLoading(false);
     }
   }, [wsId, filters, showError]);
 
@@ -101,6 +105,7 @@ export default function InboxPage() {
     <div className="flex h-screen">
       <ConversationList
         conversations={conversations}
+        loading={conversationsLoading}
         filters={filters}
         onFiltersChange={setFilters}
         members={members}

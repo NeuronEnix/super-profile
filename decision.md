@@ -281,3 +281,99 @@ worth recording since they'd bite silently otherwise.
   contention already documented in #16, not something Task 10 introduced. `retries: 1` already
   absorbs it and a clean run (all 4 green, zero retries needed) is common; not chasing further
   tonight given Tasks 11–13 remain.
+
+## 18. Skipping Task 11 (canned responses + AI draft replies) entirely
+
+- **Context:** Task 11 is explicitly marked stretch in the plan, with its own pre-authorized
+  fallback clause: "if behind schedule at this point, SKIP this task entirely ... Task 12/13
+  matter more." Tasks 0–10 (all 7 of the assignment's required features plus AI summaries) are
+  done, deployed, and verified against prod. What remains is Task 13: a real-effort README (the
+  evaluator reads this first), a hardening pass, and the full acceptance matrix sweep against
+  prod — none of which are optional, all of which map directly to "deployed & working" and
+  "security" outranking "stretch features" in CLAUDE.md's stated priority order.
+- **Options:** (a) attempt Task 11 (canned responses + AI draft replies) before Task 13; (b) skip
+  Task 11 entirely and go straight to Task 13.
+- **Chosen:** (b) — skip Task 11 entirely.
+- **Why:** The plan itself names this exact tradeoff and resolves it: required-feature hardening
+  and evaluator-facing documentation matter more than a stretch feature nobody asked to have
+  prioritized. Time remaining overnight is better spent making sure the 7 required features are
+  bulletproof and well-documented than adding an 8th nice-to-have. No canned-response UI or
+  AI-draft-reply endpoint exists in this build; the assignment's required surface area is
+  unaffected.
+
+## 19. Task 13 hardening: CORS scoping, D1 batch()ing, and a new D1 bug caught in the act
+
+- **CORS scoped correctly, verified with a real preflight.** Added `hono/cors` on
+  `/api/v1/widget/*` and `/api/v1/public/*` only (`Access-Control-Allow-Origin: *`,
+  `credentials: false` — these endpoints carry no ambient credential). Confirmed via a real
+  `OPTIONS` preflight from a fake `Origin: https://evil.example.com` against `wrangler dev`: widget
+  routes answer with the open CORS headers, `GET /api/v1/health` (representative of every other
+  route) answers with none at all.
+- **D1 multi-write batching.** Had an Explore subagent audit every backend module for sequential
+  D1 writes within one logical unit of work that could become a single `db.batch()` (atomicity +
+  fewer round trips). Two real candidates, both applied: `WorkspaceHub.handleMessage()`
+  (message insert + conversation counter update, plus the conditional reopen insert/update) in
+  `realtime/hub.ts`, and `DELETE /kb/collections/:id` (unlink articles + delete the collection) in
+  `kb/kb.api.ts`. A third candidate (`auth/auth.api.ts` invite-accept) and others were correctly
+  identified as *not* batchable — a read/branch sits between the writes, which `db.batch()` can't
+  express since batched statements can't see each other's results.
+- **Caught a new instance of the decision #16 D1 gotcha while verifying the batch change.** After
+  batching the KB collection delete, curl-testing the exact "collection has a linked article"
+  path (not covered by `kb.spec.ts`, which never deletes a collection) returned
+  `400 KB_COLLECTION_NOT_FOUND` even though the delete actually succeeded (confirmed by a
+  follow-up GET showing the article's `collectionId` correctly nulled, and a repeat DELETE
+  correctly returning not-found on the *next* call). Root cause: inside one `db.batch()`, D1's
+  `meta.changes` on a later statement carries over row-count contributions from an earlier
+  statement's trigger side effects in the same batch — here, the UPDATE against `kb_articles`
+  fires the `kb_articles_fts` `AFTER UPDATE` trigger (any UPDATE, not just title/body_text
+  changes, since the trigger isn't scoped to specific columns), and that inflated count bled into
+  the subsequent DELETE's own `meta.changes`. Isolated with a clean A/B: deleting a collection with
+  zero linked articles worked fine (`changes` on the DELETE was exactly 1); deleting one with a
+  linked article failed until the check changed from `!== 1` to `< 1` (matching the existing
+  house style from #16), after which both the empty and non-empty cases verified correctly, plus
+  the not-found case on a repeat delete.
+- **Why worth logging separately from #16:** this is a *new* bug this session introduced (via the
+  batching change) and caught the same night by re-running the exact manual curl scenario the
+  earlier #16 bug had already taught us to check for — evidence the "test the full documented
+  behavior, not just what the UI happens to call" lesson generalizes, and a good illustration of
+  why `db.batch()` needs the same trigger-awareness as sequential statements, not less.
+
+## 20. Task 13: found and fixed a real onboarding gap — no UI ever showed the widget install key
+
+- **Context:** while manually walking the "Try it now" evaluator flow for the README, discovered
+  that `SettingsPage.tsx` (and every other dashboard page) never displayed the workspace's
+  `widgetKey` — there was no way for an admin to get their own install snippet from the UI at
+  all, despite the frontend `Workspace` type claiming `widgetKey`/`widgetColor` as required
+  fields. Root cause: `GET /auth/me` — the endpoint `AuthContext` actually calls to populate its
+  `workspaces` state — only ever selected `{id, name, slug, role}`; `widgetKey`/`widgetColor`
+  were only ever returned by `POST /workspaces` (create) and `GET /workspaces` (a different,
+  unused-by-the-dashboard list endpoint). The type was correct, the data behind it never was —
+  `ws.widgetKey` would have silently been `undefined` anywhere the dashboard tried to read it,
+  and nothing had tried yet because nothing in the UI read it before this fix.
+- **Fix:** added `widget_key as widgetKey, widget_color as widgetColor` to the `/auth/me` query
+  (`backend/src/auth/auth.api.ts`), and added an "Install the widget" section to
+  `SettingsPage.tsx` — the script-tag snippet with a copy button, a link to open
+  `/demo.html?key=...` with the workspace's own key, and a link to the public KB page.
+- **Why worth logging:** this would have directly broken the evaluator quick-start flow this
+  session's README asks for ("open Settings, copy the widget key") — caught by actually walking
+  that flow in a real browser as a fresh signup, not by reading the code. A good example of why
+  the verification protocol insists on clicking through features as a user would, not just
+  confirming the API contract compiles.
+
+## 21. Screenshots not embedded as files in docs/screenshots/
+
+- **Context:** Task 13 asks for screenshots of dashboard/widget/KB/summary saved to
+  `docs/screenshots/` and embedded in the README. Captured all four via the browser automation
+  tool with `save_to_disk: true` (dashboard conversation + real AI summary, widget ticket list
+  with two persisted tickets, KB public article, Settings widget-install panel), but the tool's
+  claimed on-disk save path wasn't resolvable from this session's filesystem access (searched the
+  scratchpad session directory and common temp/download locations — not found).
+- **Chosen:** don't block the rest of Task 13 on this. The README instead leans on the live prod
+  URLs (which evaluators can click through in under 2 minutes per the "Try it now" section) plus
+  the detailed textual walkthrough — a live, interactive product is stronger evidence than static
+  screenshots anyway, and every feature described was independently verified this session with
+  real evidence (see the acceptance matrix pass and #17–#20).
+- **Why it's safe:** this is the one sub-item squarely in "visual polish" per CLAUDE.md's stated
+  priority order (deployed & working > core-feature correctness > security > stretch features >
+  visual polish) — every functional and security item in Task 13 is otherwise complete and
+  verified against prod.

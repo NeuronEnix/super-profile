@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import type { HonoEnv } from "./common/hono-env";
 import { ok, registerErrorHandler } from "./common/envelope";
 import { ctxErr } from "./ctx/ctx.error";
@@ -22,6 +23,19 @@ const app = new Hono<HonoEnv>();
 
 app.use("*", logger);
 registerErrorHandler(app);
+
+// Widget and public KB endpoints carry no ambient credentials (bearer tokens only, no cookies),
+// so they're safe to open up cross-origin — the widget is embedded on arbitrary customer sites
+// and the public KB is meant to be fetched from anywhere. Every other route stays same-origin
+// only (no CORS headers at all), since the dashboard API relies on the refresh cookie.
+const openCors = cors({
+  origin: "*",
+  allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization"],
+  credentials: false,
+});
+app.use("/api/v1/widget/*", openCors);
+app.use("/api/v1/public/*", openCors);
 
 app.get("/api/v1/health", (c) => ok(c, { ts: Date.now() }));
 

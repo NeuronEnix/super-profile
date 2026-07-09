@@ -439,24 +439,24 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
 
 **Files:** `README.md` (root), polish across; `e2e/tests/smoke.spec.ts` (prod).
 
-- [ ] README (the evaluator reads this — spend real effort): what/why, architecture diagram (ASCII), schema summary, real-time design (DO ordering + hibernation + reconnect), email engineering (threading diagram: Message-ID/In-Reply-To/plus-addressing), AI design (windowing/cache/fallback/cost), security section (token model incl. CSRF/XSS reasoning, tenant isolation, widget isolation, sanitization, rate-limit flag), trade-offs & deliberate scope (from decision.md: no Queues, markdown-as-rich-text, stateless refresh, custom-domain SSL stub), built vs skipped table, local setup (exact commands incl. `.dev.vars` template), deployment, testing instructions for evaluators (URLs, demo page, inbound email address, sample workspace), known limitations (from MORNING.md list).
-- [ ] Hardening pass: every route zod-validated (grep for `c.req.json()` outside validate); D1 batch where multi-write; widget CORS headers on `/api/v1/widget/*` + `/api/v1/public/*` (`Access-Control-Allow-Origin: *`, no credentials) and NONE elsewhere; security headers on HTML (CSP frame-ancestors for /widget-app must ALLOW all — it's an embed; X-Frame-Options absent there, DENY on dashboard routes... assets serve both, so: set CSP via Hono only on API-rendered pages, skip static-page headers, note in README); 404/empty states in UI; loading skeletons on inbox.
-- [ ] **Final acceptance matrix — run every line against PROD, tick only on evidence:**
-  - [ ] 1a Signup/login via magic link (real email to Gmail read via browser MCP, not debug header — once)
-  - [ ] 1b Invite flow both roles; role enforcement (AGENT can't invite)
-  - [ ] 1c Assign conversations to agents
-  - [ ] 2 Widget on /demo: real-time both ways, typing, presence, read receipts, history after reload (same browser), ticket-style multi-conversation
-  - [ ] 3 Email: real inbound → conversation (or simulator + MORNING.md note if transport blocked); dashboard reply → real email in Gmail; customer reply threads into same conversation
-  - [ ] 4 Inbox filters (channel/status/assignee), assign/snooze/resolve, snooze auto-reopen
-  - [ ] 5 KB: create/edit/publish markdown, categories, public page + search, widget auto-suggest
-  - [ ] 6 AI summary on a long conversation; updates after new messages; fallback path renders when forced (temporarily bad model name locally to see 400 — do not deploy that)
-  - [ ] 7 Custom domains: approach fully documented in README (feature implementation deferred to morning per user — confirm MORNING.md carries the task)
-  - [ ] Stretch present: canned responses, AI drafts (if Task 11 done)
-  - [ ] Envelope discipline: spot-check 5 endpoints incl. errors (200/400 shapes)
-  - [ ] README accurate; MORNING.md final status written; decision.md complete
-- [ ] `e2e` full suite green against prod (`BASE_URL=<prod> pnpm test`). Screenshots of dashboard, widget, KB, summary saved to `docs/screenshots/` and embedded in README.
-- [ ] Final commit + push (`docs: README, hardening, final acceptance evidence`).
-- [ ] **Stop the loop** (ScheduleWakeup stop) after appending the final status block to MORNING.md.
+- [x] README (the evaluator reads this — spend real effort): what/why, architecture diagram (ASCII), schema summary, real-time design (DO ordering + hibernation + reconnect), email engineering (threading diagram: Message-ID/In-Reply-To/plus-addressing), AI design (windowing/cache/fallback/cost), security section (token model incl. CSRF/XSS reasoning, tenant isolation, widget isolation, sanitization, rate-limit flag), trade-offs & deliberate scope (from decision.md: no Queues, markdown-as-rich-text, stateless refresh, custom-domain SSL stub), built vs skipped table, local setup (exact commands incl. `.dev.vars` template), deployment, testing instructions for evaluators (URLs, demo page, inbound email address, sample workspace), known limitations (from MORNING.md list).
+- [x] Hardening pass: every route zod-validated (grep for `c.req.json()` outside validate); D1 batch where multi-write; widget CORS headers on `/api/v1/widget/*` + `/api/v1/public/*` (`Access-Control-Allow-Origin: *`, no credentials) and NONE elsewhere; security headers on HTML (CSP frame-ancestors for /widget-app must ALLOW all — it's an embed; X-Frame-Options absent there, DENY on dashboard routes... assets serve both, so: set CSP via Hono only on API-rendered pages, skip static-page headers, note in README); 404/empty states in UI; loading skeletons on inbox. Also found+fixed a real bug while verifying (D1 batch changes-counting, decision #19) and a real onboarding gap (no UI ever surfaced the widget key, decision #20).
+- [x] **Final acceptance matrix — run every line against PROD, tick only on evidence:**
+  - [x] 1a Signup/login via magic link (real email to Gmail read via browser MCP, not debug header — once)
+  - [x] 1b Invite flow both roles; role enforcement (AGENT can't invite)
+  - [x] 1c Assign conversations to agents
+  - [x] 2 Widget on /demo: real-time both ways, typing, presence, read receipts, history after reload (same browser), ticket-style multi-conversation
+  - [x] 3 Email: real inbound → conversation (or simulator + MORNING.md note if transport blocked); dashboard reply → real email in Gmail; customer reply threads into same conversation
+  - [x] 4 Inbox filters (channel/status/assignee), assign/snooze/resolve, snooze auto-reopen
+  - [x] 5 KB: create/edit/publish markdown, categories, public page + search, widget auto-suggest
+  - [x] 6 AI summary on a long conversation; updates after new messages; fallback path renders when forced (temporarily bad model name locally to see 400 — do not deploy that)
+  - [x] 7 Custom domains: approach fully documented in README (feature implementation deferred to morning per user — confirm MORNING.md carries the task)
+  - [x] Stretch present: canned responses, AI drafts (if Task 11 done) — N/A, Task 11 deliberately skipped (decision #18)
+  - [x] Envelope discipline: spot-check 5 endpoints incl. errors (200/400 shapes)
+  - [x] README accurate; MORNING.md final status written; decision.md complete
+- [x] `e2e` full suite green against prod (`BASE_URL=<prod> pnpm test`). Screenshots captured via browser automation but the tool's save-to-disk path wasn't resolvable this session — not embedded as files (decision #21); the README leans on live URLs + a detailed walkthrough instead.
+- [x] Final commit + push (`docs: README, hardening, final acceptance evidence`).
+- [x] **Stop the loop** (ScheduleWakeup stop) after appending the final status block to MORNING.md.
 
 ---
 

@@ -52,8 +52,8 @@ export type Env = {
 };
 ```
 
-- [ ] **0.1 Scaffold packages**: `pnpm create vite frontend --template react-ts`; add tailwind v4 (`pnpm --dir frontend add -D tailwindcss @tailwindcss/vite`, add `@tailwindcss/vite` plugin to `vite.config.ts`, `@import "tailwindcss";` at top of `src/index.css`). `mkdir backend e2e`; `pnpm --dir backend init` + `pnpm --dir backend add hono zod postal-mime && pnpm --dir backend add -D typescript vitest @cloudflare/workers-types wrangler`; `pnpm --dir e2e init && pnpm --dir e2e add -D @playwright/test && pnpm --dir e2e exec playwright install chromium`.
-- [ ] **0.2 wrangler.jsonc** (backend/) — exact content, fill `database_id` after 0.3:
+- [x] **0.1 Scaffold packages**: `pnpm create vite frontend --template react-ts`; add tailwind v4 (`pnpm --dir frontend add -D tailwindcss @tailwindcss/vite`, add `@tailwindcss/vite` plugin to `vite.config.ts`, `@import "tailwindcss";` at top of `src/index.css`). `mkdir backend e2e`; `pnpm --dir backend init` + `pnpm --dir backend add hono zod postal-mime && pnpm --dir backend add -D typescript vitest @cloudflare/workers-types wrangler`; `pnpm --dir e2e init && pnpm --dir e2e add -D @playwright/test && pnpm --dir e2e exec playwright install chromium`.
+- [x] **0.2 wrangler.jsonc** (backend/) — exact content, fill `database_id` after 0.3:
 
 ```jsonc
 {
@@ -80,8 +80,8 @@ export type Env = {
 
 (`new_sqlite_classes` is mandatory — classic DO storage is paid-only. Placeholder DO classes in 0.5 so deploy succeeds.)
 
-- [ ] **0.3 Create cloud resources**: `cd backend && npx wrangler d1 create super-profile` (paste id into wrangler.jsonc) and `npx wrangler r2 bucket create super-profile-attachments`.
-- [ ] **0.4 Migration 0001_init.sql** — full DDL, exact:
+- [x] **0.3 Create cloud resources**: `cd backend && npx wrangler d1 create super-profile` (paste id into wrangler.jsonc) and `npx wrangler r2 bucket create super-profile-attachments`.
+- [x] **0.4 Migration 0001_init.sql** — full DDL, exact:
 
 ```sql
 CREATE TABLE users (
@@ -175,10 +175,10 @@ CREATE TABLE canned_responses (
 
 Apply: `npx wrangler d1 migrations apply super-profile --local --yes` then `--remote --yes` (if `--yes` unsupported, `printf 'y\n' |`). Expected: all statements executed.
 
-- [ ] **0.5 Hello worker** — `src/index.ts`: Hono app; placeholder `export class WorkspaceHub { constructor(state: DurableObjectState, env: Env) {} async fetch() { return new Response('ok'); } }` and same for `RateLimiter`; route `GET /api/v1/health` → `{code:"OK",msg:"OK",data:{ts}}`; catch-all `app.all('*', c => c.env.ASSETS.fetch(c.req.raw))`. `pnpm --dir frontend build`, `npx wrangler dev` → curl health + `/` returns SPA html.
-- [ ] **0.6 Secrets**: generate `openssl rand -hex 32` ×5 → append to root `.env` (JWT_ACCESS_SECRET etc.); write all six into `backend/.dev.vars`; `npx wrangler secret put <NAME>` ×6 (pipe values: `printf '%s' "$VAL" | npx wrangler secret put NAME`).
-- [ ] **0.7 Deploy + record URL**: `npx wrangler deploy` → note `https://super-profile.<sub>.workers.dev`, set `APP_URL` var in wrangler.jsonc, redeploy, update MORNING.md snapshot. Curl prod `/api/v1/health`.
-- [ ] **0.8 Commit + push** (`feat: scaffold worker, d1 schema, deploy skeleton`).
+- [x] **0.5 Hello worker** — `src/index.ts`: Hono app; placeholder `export class WorkspaceHub { constructor(state: DurableObjectState, env: Env) {} async fetch() { return new Response('ok'); } }` and same for `RateLimiter`; route `GET /api/v1/health` → `{code:"OK",msg:"OK",data:{ts}}`; catch-all `app.all('*', c => c.env.ASSETS.fetch(c.req.raw))`. `pnpm --dir frontend build`, `npx wrangler dev` → curl health + `/` returns SPA html.
+- [x] **0.6 Secrets**: generate `openssl rand -hex 32` ×5 → append to root `.env` (JWT_ACCESS_SECRET etc.); write all six into `backend/.dev.vars`; `npx wrangler secret put <NAME>` ×6 (pipe values: `printf '%s' "$VAL" | npx wrangler secret put NAME`).
+- [x] **0.7 Deploy + record URL**: `npx wrangler deploy` → note `https://super-profile.<sub>.workers.dev`, set `APP_URL` var in wrangler.jsonc, redeploy, update MORNING.md snapshot. Curl prod `/api/v1/health`.
+- [x] **0.8 Commit + push** (`feat: scaffold worker, d1 schema, deploy skeleton`).
 
 **Fallback:** R2 create fails → drop the binding from config, note in decision.md (attachments are stretch).
 

@@ -5,9 +5,10 @@ Things that need your hands or your judgment. The overnight run appends here; it
 
 ## Status snapshot
 <!-- The overnight run keeps this section current: what's deployed, URLs, what's green/red -->
-- Prod URL: _(filled in after first deploy)_
-- Demo page (widget): _(prod URL)/demo_
+- Prod URL: https://super-profile.kaushikrb909.workers.dev
+- Demo page (widget): https://super-profile.kaushikrb909.workers.dev/demo.html
 - Inbound email address pattern: `<workspace-slug>@inbox.hyugorix.com`
+- Task 0 (scaffold/D1/deploy) complete as of first overnight loop iteration.
 
 ## Actions for you
 

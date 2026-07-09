@@ -1,0 +1,20 @@
+{
+  "name": "super-profile",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "5c06421b792bba8d18c35d4d575c0b71",
+  "observability": { "enabled": true },
+  "assets": { "directory": "../frontend/dist", "binding": "ASSETS",
+              "not_found_handling": "single-page-application", "run_worker_first": true },
+  "d1_databases": [{ "binding": "DB", "database_name": "super-profile", "database_id": "04dbac7e-6f9d-438c-a379-b64b90b82734" }],
+  "durable_objects": { "bindings": [
+    { "name": "WORKSPACE_HUB", "class_name": "WorkspaceHub" },
+    { "name": "RATE_LIMITER", "class_name": "RateLimiter" }
+  ]},
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WorkspaceHub", "RateLimiter"] }],
+  "ai": { "binding": "AI" },
+  "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "super-profile-attachments" }],
+  "vars": { "APP_URL": "https://super-profile.kaushikrb909.workers.dev", "INBOUND_DOMAIN": "inbox.hyugorix.com",
+            "SEND_DOMAIN": "notifications.hyugorix.com", "ENVIRONMENT": "prod" }
+}

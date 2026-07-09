@@ -44,9 +44,8 @@ Outbound via Resend with our own `Message-ID` and correct `In-Reply-To` headers,
 `EmailSender` interface. A secret-protected `POST /email/inbound` simulator endpoint allows
 end-to-end threading tests before Email Routing is configured.
 
-**AI:** Workers AI, ~30B-class model kept as a single constant `AI.MODEL` (easy swap).
-Note: Workers AI has no 30B Llama — closest fits are `@cf/meta/llama-4-scout-17b-16e-instruct`
-(default) or `@cf/qwen/qwq-32b`. Rolling summary: last N messages + previous summary → new
+**AI:** Workers AI, Llama 3.3 70B (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`), kept as a single
+constant `AI.MODEL` (easy swap). Rolling summary: last N messages + previous summary → new
 summary, cached in D1 keyed by message count so it only regenerates when the conversation grows,
 10s timeout + graceful "summary unavailable" fallback.
 
@@ -69,11 +68,13 @@ No passwords anywhere. Signup and login are the same flow.
    `TOKEN_EXPIRED` / `INVALID_TOKEN`).
 3. On success: upsert `users` row by email (first login = signup), then issue **both tokens**.
 
-**Tokens (stateless — no session table)**
-- **Access token**: JWT, 15 min TTL, `{sub: userId}`. Returned in the response body `data`.
+**Tokens (stateless — no session table, no jti denylist; a denylist would just be sessions again)**
+- Both tokens are **HS256** JWTs signed with **different secrets** (`JWT_ACCESS_SECRET` /
+  `JWT_REFRESH_SECRET`), so one can never be replayed as the other.
+- **Access token**: JWT, 30 min TTL, `{sub: userId}`. Returned in the response body `data`.
   Frontend keeps it **in memory only** (never localStorage/cookies) → XSS cannot exfiltrate a
   durable credential. Sent as `Authorization: Bearer`.
-- **Refresh token**: JWT, 30 days TTL, separate secret. Set as **HttpOnly, Secure,
+- **Refresh token**: JWT, 30 days TTL. Set as **HttpOnly, Secure,
   SameSite=Strict** cookie, `Path=/api/v1/auth/refresh` — JS can never read it, and it is only
   ever sent to the refresh endpoint → CSRF surface is the refresh endpoint alone, which only
   mints tokens (SameSite=Strict blocks cross-site sends anyway).
@@ -127,11 +128,11 @@ export const MESSAGE = {
 } as const;
 export const ARTICLE = { STATUS: { DRAFT: "DRAFT", PUBLISHED: "PUBLISHED" } } as const;
 export const AUTH = {
-  ACCESS_TOKEN_TTL_SEC: 15 * 60,
+  ACCESS_TOKEN_TTL_SEC: 30 * 60,
   REFRESH_TOKEN_TTL_SEC: 30 * 24 * 60 * 60,
   MAGIC_LINK_TTL_SEC: 10 * 60,
 } as const;
-export const AI = { MODEL: "@cf/meta/llama-4-scout-17b-16e-instruct", /* ~30B-class */ } as const;
+export const AI = { MODEL: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" } as const;
 export const FLAG = { RATE_LIMIT_ENABLED: false } as const;  // hardcoded; flip to enforce
 export const RATE_LIMIT = { MAGIC_LINK: { PER_EMAIL: 3, PER_IP: 10, WINDOW_SEC: 600 } } as const;
 ```

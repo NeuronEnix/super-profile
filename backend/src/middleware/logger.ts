@@ -1,7 +1,8 @@
 import type { Context, Next } from "hono";
 import { uuidv7 } from "../common/id";
+import type { HonoEnv } from "../common/hono-env";
 
-export async function logger(c: Context, next: Next) {
+export async function logger(c: Context<HonoEnv>, next: Next) {
   const reqId = uuidv7();
   c.set("reqId", reqId);
   const start = Date.now();

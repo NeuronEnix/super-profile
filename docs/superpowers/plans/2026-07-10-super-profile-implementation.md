@@ -267,9 +267,9 @@ if (res.meta.changes !== 1) {
 
   then upsert user by email (SELECT → INSERT `{id: uuidv7()}` if missing), return `data:{accessToken, user}` + set refresh cookie (HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth/refresh; Max-Age 30d).
   `POST /auth/refresh` — read cookie, verify refresh JWT (`ctxErr.auth.invalidRefreshToken()` on any failure), return new access + rotate cookie. `POST /auth/logout` — clear cookie. `GET /auth/me` (Bearer) — `{user, workspaces:[{id,name,slug,role}]}`.
-- [ ] TDD the pure parts (token sign/verify roundtrip + expiry with fake time offsets; consume-SQL builder). Implement, wire routes.
-- [ ] Verify by curl against `wrangler dev`: magic-link with X-Debug-Auth → verify → me → refresh (cookie jar `curl -c/-b`) → each envelope correct; wrong token → 400 INVALID_TOKEN; reused token → 400 TOKEN_EXPIRED.
-- [ ] Commit + push (`feat: magic-link auth with access/refresh tokens`).
+- [x] TDD the pure parts (token sign/verify roundtrip + expiry with fake time offsets; consume-SQL builder). Implement, wire routes.
+- [x] Verify by curl against `wrangler dev`: magic-link with X-Debug-Auth → verify → me → refresh (cookie jar `curl -c/-b`) → each envelope correct; wrong token → 400 INVALID_TOKEN; reused token → 400 TOKEN_EXPIRED.
+- [x] Commit + push (`feat: magic-link auth with access/refresh tokens`).
 
 ---
 

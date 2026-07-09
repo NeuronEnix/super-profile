@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import type { Env } from "./types";
+import type { HonoEnv } from "./common/hono-env";
 import { ok, registerErrorHandler } from "./common/envelope";
 import { ctxErr } from "./ctx/ctx.error";
 import { logger } from "./middleware/logger";
+import { authApi } from "./auth/auth.api";
 
 export class WorkspaceHub {
   constructor(_state: DurableObjectState, _env: Env) {}
@@ -18,12 +20,14 @@ export class RateLimiter {
   }
 }
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<HonoEnv>();
 
 app.use("*", logger);
 registerErrorHandler(app);
 
 app.get("/api/v1/health", (c) => ok(c, { ts: Date.now() }));
+
+app.route("/api/v1/auth", authApi);
 
 // Any /api/v1/* path that didn't match a real route is a genuine 404 — must not
 // fall through to the SPA asset fallback below.

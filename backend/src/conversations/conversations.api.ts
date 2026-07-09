@@ -7,6 +7,7 @@ import { authMiddleware, wsMiddleware } from "../middleware/auth";
 import { CHANNEL, CONVERSATION } from "../common/const";
 import { now } from "../common/id";
 import { sendMessage, markRead, notifyConversationUpdated } from "../realtime/hub";
+import { sendReply } from "../email/outbound";
 import { encodeConversationCursor, decodeConversationCursor } from "./service";
 import type { HonoEnv } from "../common/hono-env";
 
@@ -197,6 +198,25 @@ conversationsApi.post("/conversations/:id/messages", validate(PostMessageBody, "
     senderId: userId,
     bodyText: body,
   });
+
+  if (out.conversation.channel === CHANNEL.EMAIL) {
+    const [workspace, contact] = await Promise.all([
+      c.env.DB.prepare("SELECT id, name, slug FROM workspaces WHERE id=?1").bind(workspaceId).first<{
+        id: string;
+        name: string;
+        slug: string;
+      }>(),
+      c.env.DB.prepare("SELECT email FROM contacts WHERE id=?1").bind(out.conversation.contactId).first<{
+        email: string | null;
+      }>(),
+    ]);
+    if (workspace && contact) {
+      c.executionCtx.waitUntil(
+        sendReply(c.env, { workspace, conversation: out.conversation, contact, message: out.message }),
+      );
+    }
+  }
+
   return ok(c, out);
 });
 

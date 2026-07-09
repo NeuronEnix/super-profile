@@ -11,12 +11,11 @@ import { generateRawToken, hashToken, consumeToken } from "./magic";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./token";
 import { getSender } from "../email/sender";
 import { getConfig } from "../config/env.config";
+import { upsertUserByEmail, type UserRow } from "../users/users.service";
 import type { HonoEnv } from "../common/hono-env";
 
 const MagicLinkBody = z.object({ email: z.string().email() });
 const VerifyBody = z.object({ token: z.string().min(1) });
-
-type UserRow = { id: string; email: string | null; name: string | null };
 
 function refreshCookieOpts() {
   return {
@@ -26,17 +25,6 @@ function refreshCookieOpts() {
     path: AUTH.REFRESH_COOKIE_PATH,
     maxAge: AUTH.REFRESH_TOKEN_TTL_SEC,
   };
-}
-
-async function upsertUserByEmail(db: D1Database, email: string): Promise<UserRow> {
-  const existing = await db.prepare("SELECT id, email, name FROM users WHERE email=?1").bind(email).first<UserRow>();
-  if (existing) return existing;
-  const id = uuidv7();
-  await db
-    .prepare("INSERT INTO users (id, email, name, created_at) VALUES (?1, ?2, NULL, ?3)")
-    .bind(id, email, now())
-    .run();
-  return { id, email, name: null };
 }
 
 export const authApi = new Hono<HonoEnv>();

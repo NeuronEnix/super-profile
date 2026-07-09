@@ -44,3 +44,23 @@ Things that need your hands or your judgment. The overnight run appends here; it
   documented production fix.
 
 <!-- Overnight entries append below -->
+
+- [ ] **Real inbound email transport (Task 6):** the email channel is fully built and verified
+      (inbound ingestion, threading via plus-address + In-Reply-To/References, real outbound
+      Resend send confirmed in your Gmail with correct headers) but the *transport* — how a real
+      email physically reaches the Worker — is still the simulator endpoint
+      (`POST /api/v1/email/inbound` + `X-Inbound-Secret`), not live. Two options, both need your
+      go-ahead because they touch DNS on your real domain:
+      1. **Cloudflare Email Routing** (dash.cloudflare.com → hyugorix.com → Email Routing) — you
+         already have 5 routing rules configured (support@/info@/help@/company@/kaushik@ → your
+         Gmail) but the feature is Disabled/DNS-not-configured. Enabling it adds/changes MX
+         records **at the zone apex** (`hyugorix.com`) — there's no dashboard option to scope it
+         to only `inbox.hyugorix.com`. This would sit alongside (and could conflict with) your
+         real Microsoft 365 MX. Do this only if you're comfortable reviewing exactly what
+         Cloudflare proposes to change before confirming.
+      2. **Resend Inbound** — checked the Resend dashboard; no Receiving/Inbound tab exists in
+         your account (feature not enabled/available there). Would need Resend to expose it, or
+         a different inbound-email provider that supports subdomain-scoped MX (the safe pattern —
+         doesn't touch the apex).
+      If you don't want to touch DNS before submitting, the simulator is a fully honest,
+      fully-tested demo path — decision.md #13 has the details evaluators/you can read.

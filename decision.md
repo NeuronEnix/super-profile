@@ -131,3 +131,33 @@ chat); everything after gets appended during the overnight run.
 - **Why it's safe:** matches the invite's implied contract (an invite is *for* a specific email);
   costs one extra SELECT; doesn't block the intended flow (recipient signs in via magic link with
   the invited address, then accepts).
+
+## 13. Email transport: real inbound routing stays out of scope tonight — simulator carries the demo
+
+- **Context:** Task 6 asked me to try wiring real inbound transport (Cloudflare Email Routing or
+  Resend Inbound) for `inbox.hyugorix.com` before falling back to the simulator.
+- **Investigated (read-only, no DNS changes made):**
+  - **Cloudflare Email Routing** on the `hyugorix.com` zone: already has 5 pre-existing routing
+    rules (support@/info@/help@/company@/kaushik@ → kaushikrb909@gmail.com) but the whole feature
+    shows **Status: Disabled, DNS records: Not configured** — i.e. it was set up at some point but
+    never activated, and today's MX truly is Microsoft 365 only. Critically, Cloudflare Email
+    Routing is a **zone-level** feature: enabling it adds/changes MX records at the zone's apex
+    (`hyugorix.com`), not scoped to a subdomain. There is no dashboard option to scope it to only
+    `inbox.hyugorix.com` while leaving the apex MX untouched. Enabling it would violate the
+    absolute rule "never modify apex hyugorix.com records" — did not proceed.
+  - **Resend Inbound**: checked the Resend dashboard (Domains → notifications.hyugorix.com) —
+    no "Receiving"/"Inbound" tab is present in this account, only Records/Configuration. The
+    feature isn't available/enabled here.
+- **Chosen:** stick with the simulator endpoint (`POST /api/v1/email/inbound` with
+  `X-Inbound-Secret`) as the demo path for the assignment. It is fully implemented and verified
+  end-to-end tonight: simulated inbound → new EMAIL conversation; agent reply → **real** Resend
+  send to kaushikrb909@gmail.com (confirmed via Gmail "Show original": correct From, Reply-To
+  plus-address, In-Reply-To/References headers, SPF/DKIM/DMARC all PASS); simulated customer
+  replies via both plus-addressing and In-Reply-To/References header matching both correctly
+  threaded into the same conversation with zero duplicates.
+- **Why it's safe:** doesn't touch the user's real Microsoft 365 mail; the full pipeline (parsing,
+  threading, outbound send, real headers) is proven end-to-end — only the "how does a real email
+  physically reach our Worker" leg is stubbed, exactly the kind of thing the assignment explicitly
+  allows stubbing with an honest explanation. Real transport setup (enabling Cloudflare Email
+  Routing at the apex, which needs the user's explicit go-ahead since it's their real work email)
+  is now a MORNING.md task.

@@ -10,6 +10,8 @@ import { teamApi } from "./team/team.api";
 import { conversationsApi } from "./conversations/conversations.api";
 import { widgetApi } from "./widget/widget.api";
 import { wsConnectApi } from "./realtime/ws.api";
+import { emailApi } from "./email/email.api";
+import { handleEmailWorker } from "./email/email.worker";
 
 export { WorkspaceHub } from "./realtime/hub";
 
@@ -34,6 +36,7 @@ app.route("/api/v1/ws/:wsId", teamApi);
 app.route("/api/v1/ws/:wsId", conversationsApi);
 app.route("/api/v1/widget", widgetApi);
 app.route("/api/v1/ws-connect", wsConnectApi);
+app.route("/api/v1/email", emailApi);
 
 // Any /api/v1/* path that didn't match a real route is a genuine 404 — must not
 // fall through to the SPA asset fallback below.
@@ -43,4 +46,7 @@ app.all("/api/v1/*", () => {
 
 app.all("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
-export default app;
+export default {
+  fetch: app.fetch,
+  email: handleEmailWorker,
+};

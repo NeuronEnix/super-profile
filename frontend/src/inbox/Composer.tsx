@@ -6,18 +6,21 @@ export function Composer({
   onSend,
   onTyping,
   onSuggest,
+  onFixGrammar,
   disabled,
   placeholder = "Reply…",
 }: {
   onSend: (text: string) => Promise<void> | void;
   onTyping?: () => void;
   onSuggest?: () => Promise<DraftSuggestion>;
+  onFixGrammar?: (text: string) => Promise<string>;
   disabled?: boolean;
   placeholder?: string;
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
+  const [fixing, setFixing] = useState(false);
   const [sources, setSources] = useState<DraftSuggestion["sources"] | null>(null);
   const dirtyRef = useRef(false);
   const loopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,6 +66,20 @@ export function Composer({
       // The parent surfaces the error toast; nothing to roll back here.
     } finally {
       setSuggesting(false);
+    }
+  }
+
+  async function handleFixGrammar() {
+    const trimmed = text.trim();
+    if (!onFixGrammar || !trimmed || fixing || sending) return;
+    setFixing(true);
+    try {
+      const corrected = await onFixGrammar(trimmed);
+      setText(corrected);
+    } catch {
+      // The parent surfaces the error toast; the original text stays untouched.
+    } finally {
+      setFixing(false);
     }
   }
 
@@ -113,6 +130,16 @@ export function Composer({
       <div className="mt-1.5 flex items-center justify-between">
         <span className="text-[11px] text-slate-400">Enter to send, Shift+Enter for a new line</span>
         <div className="flex items-center gap-2">
+          {onFixGrammar && (
+            <button
+              onClick={handleFixGrammar}
+              disabled={disabled || sending || fixing || !text.trim()}
+              title="Fix grammar, spelling and punctuation without changing your wording"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+            >
+              {fixing ? "Fixing…" : "Correct grammar"}
+            </button>
+          )}
           {onSuggest && (
             <button
               onClick={handleSuggest}

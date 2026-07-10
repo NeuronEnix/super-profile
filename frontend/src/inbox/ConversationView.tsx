@@ -202,6 +202,22 @@ export function ConversationView({
     }
   }, [wsId, conversationId, showError]);
 
+  const handleFixGrammar = useCallback(
+    async (text: string): Promise<string> => {
+      try {
+        const { text: corrected } = await api<{ text: string }>(`/api/v1/ws/${wsId}/ai/grammar`, {
+          method: "POST",
+          body: { text },
+        });
+        return corrected;
+      } catch (err) {
+        showError(err instanceof ApiError ? err.message : "Something went wrong");
+        throw err; // the composer keeps the original text
+      }
+    },
+    [wsId, showError],
+  );
+
   if (!conversation) {
     return <div className="flex flex-1 items-center justify-center text-sm text-slate-400">Loading…</div>;
   }
@@ -340,6 +356,7 @@ export function ConversationView({
           onSend={handleSend}
           onTyping={isChat && !lockedToOther ? handleTyping : undefined}
           onSuggest={handleSuggest}
+          onFixGrammar={handleFixGrammar}
           disabled={lockedToOther}
           placeholder={lockedToOther ? "Reassign to yourself to reply…" : "Reply…"}
         />

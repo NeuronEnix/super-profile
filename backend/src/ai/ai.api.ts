@@ -6,9 +6,12 @@ import { validate } from "../middleware/validate";
 import { authMiddleware, wsMiddleware } from "../middleware/auth";
 import { getConversationSummary } from "./summary";
 import { suggestReply } from "./draft";
+import { correctGrammar } from "./grammar";
+import { AI_CONF } from "../common/const";
 import type { HonoEnv } from "../common/hono-env";
 
 const SummaryQuery = z.object({ force: z.string().optional() });
+const GrammarBody = z.object({ text: z.string().trim().min(1).max(AI_CONF.GRAMMAR.MAX_INPUT_CHARS) });
 
 export const aiApi = new Hono<HonoEnv>();
 aiApi.use("*", authMiddleware, wsMiddleware);
@@ -28,4 +31,10 @@ aiApi.post("/conversations/:id/suggest-reply", async (c) => {
   if (!id) throw ctxErr.conversation.notFound();
   const result = await suggestReply(c.env, workspaceId, id);
   return ok(c, result);
+});
+
+aiApi.post("/ai/grammar", validate(GrammarBody, "json"), async (c) => {
+  const { text } = c.get("body") as z.infer<typeof GrammarBody>;
+  const corrected = await correctGrammar(c.env, text);
+  return ok(c, { text: corrected });
 });

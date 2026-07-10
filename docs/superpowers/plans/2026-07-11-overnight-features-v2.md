@@ -1468,7 +1468,7 @@ Expected output ends with `ALL CHECKS PASSED`. If the blocked-path check fails b
 - `Composer` new optional prop `canned?: CannedResponse[]`
 - `ConversationView` new prop `canned: CannedResponse[]`
 
-- [ ] **Step 1: Failing test** — `backend/test/canned-match.test.ts`:
+- [x] **Step 1: Failing test** — `backend/test/canned-match.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1493,7 +1493,7 @@ describe("matchCanned", () => {
 });
 ```
 
-- [ ] **Step 2: Run to fail, implement `frontend/src/lib/canned.ts`:**
+- [x] **Step 2: Run to fail, implement `frontend/src/lib/canned.ts`:**
 
 ```ts
 export function matchCanned<T extends { title: string; tags: string }>(list: T[], query: string, limit = 8): T[] {
@@ -1505,7 +1505,7 @@ export function matchCanned<T extends { title: string; tags: string }>(list: T[]
 
 Run `cd backend && pnpm test canned` — PASS. (Backend tests import frontend pure modules by relative path — same style as the sla test coming in Task 7; vitest transforms them fine.)
 
-- [ ] **Step 3: API** — `backend/src/canned/canned.api.ts` (table exists since migration 0001; no migration needed):
+- [x] **Step 3: API** — `backend/src/canned/canned.api.ts` (table exists since migration 0001; no migration needed):
 
 ```ts
 import { Hono } from "hono";
@@ -1594,9 +1594,9 @@ cannedApi.delete("/canned/:id", async (c) => {
 
 Mount in `backend/src/index.ts`: `import { cannedApi } from "./canned/canned.api";` + `app.route("/api/v1/ws/:wsId", cannedApi);`
 
-- [ ] **Step 4: Frontend type.** In `frontend/src/lib/types.ts`: `export type CannedResponse = { id: string; title: string; body: string; tags: string; createdAt: number };`
+- [x] **Step 4: Frontend type.** In `frontend/src/lib/types.ts`: `export type CannedResponse = { id: string; title: string; body: string; tags: string; createdAt: number };`
 
-- [ ] **Step 5: Composer dropdown.** In `frontend/src/inbox/Composer.tsx`:
+- [x] **Step 5: Composer dropdown.** In `frontend/src/inbox/Composer.tsx`:
   - Add imports: `import { matchCanned } from "../lib/canned"; import type { CannedResponse } from "../lib/types";`
   - Add prop `canned?: CannedResponse[];` to the props type and destructure it.
   - Add state: `const [cannedIdx, setCannedIdx] = useState(0);`
@@ -1654,7 +1654,7 @@ Mount in `backend/src/index.ts`: `import { cannedApi } from "./canned/canned.api
   - Also update the hint line: change `Enter to send, Shift+Enter for a new line` to `Enter to send · Shift+Enter new line · / canned replies` (only when `canned` is provided — use a ternary).
   The widget's `TicketView` passes no `canned` prop, so visitors never see any of this.
 
-- [ ] **Step 6: Wire the data.** In `frontend/src/inbox/InboxPage.tsx`: add `const [canned, setCanned] = useState<CannedResponse[]>([]);` (import the type), load it in the existing members effect:
+- [x] **Step 6: Wire the data.** In `frontend/src/inbox/InboxPage.tsx`: add `const [canned, setCanned] = useState<CannedResponse[]>([]);` (import the type), load it in the existing members effect:
   ```tsx
   useEffect(() => {
     if (!wsId) return;
@@ -1664,7 +1664,7 @@ Mount in `backend/src/index.ts`: `import { cannedApi } from "./canned/canned.api
   ```
   Pass `canned={canned}` to `<ConversationView>`. In `ConversationView` add prop `canned: CannedResponse[]` and pass `canned={canned}` to `<Composer>`.
 
-- [ ] **Step 7: Settings section** — `frontend/src/settings/CannedSection.tsx`:
+- [x] **Step 7: Settings section** — `frontend/src/settings/CannedSection.tsx`:
 
 ```tsx
 import { useCallback, useEffect, useState } from "react";
@@ -1818,7 +1818,7 @@ export function CannedSection({ wsId }: { wsId: string }) {
 
 In `frontend/src/settings/SettingsPage.tsx`: `import { CannedSection } from "./CannedSection";` and render `{wsId && <CannedSection wsId={wsId} />}` between the "Install the widget" and "Workspace" sections.
 
-- [ ] **Step 8: e2e** — `e2e/tests/canned.spec.ts` (localhost only):
+- [x] **Step 8: e2e** — `e2e/tests/canned.spec.ts` (localhost only):
 
 ```ts
 import { test, expect } from "@playwright/test";
@@ -1876,9 +1876,9 @@ test("canned responses: create in settings, insert via / in composer, send", asy
 });
 ```
 
-- [ ] **Step 9: Run everything locally.** `cd backend && pnpm test` (all green) → from repo root `pnpm --dir frontend build` → start `wrangler dev` (background, with `backend/.dev.vars` present) → `cd e2e && BASE_URL=http://localhost:8787 DEBUG_AUTH_SECRET=<from .dev.vars> npx playwright test canned` → PASS. Kill wrangler dev.
+- [x] **Step 9: Run everything locally.** `cd backend && pnpm test` (all green) → from repo root `pnpm --dir frontend build` → start `wrangler dev` (background, with `backend/.dev.vars` present) → `cd e2e && BASE_URL=http://localhost:8787 DEBUG_AUTH_SECRET=<from .dev.vars> npx playwright test canned` → PASS. Kill wrangler dev.
 
-- [ ] **Step 10: Deploy + smoke.** `pnpm --dir frontend build && cd backend && npx wrangler deploy`. Prod smoke: repeat the settings-create step by API against prod (debug flow) or eyeball in browser. **Commit + push**: `git add -A && git commit -m "feat(canned): saved replies with / quick-insert in the composer" && git push origin main`
+- [x] **Step 10: Deploy + smoke.** `pnpm --dir frontend build && cd backend && npx wrangler deploy`. Prod smoke: repeat the settings-create step by API against prod (debug flow) or eyeball in browser. **Commit + push**: `git add -A && git commit -m "feat(canned): saved replies with / quick-insert in the composer" && git push origin main`
 
 ---
 

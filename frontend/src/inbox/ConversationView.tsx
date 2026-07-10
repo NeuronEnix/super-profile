@@ -6,7 +6,7 @@ import { SummaryPanel } from "./SummaryPanel";
 import { Composer, type DraftSuggestion } from "./Composer";
 import { Ticks, TypingDots, type TickState } from "../components/MessageStatus";
 import { Linkified } from "../lib/linkify";
-import type { Conversation, ConversationSnapshot, Member, Message, WsEvent } from "../lib/types";
+import type { CannedResponse, Conversation, ConversationSnapshot, Member, Message, WsEvent } from "../lib/types";
 
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -32,6 +32,7 @@ export function ConversationView({
   subscribe,
   reconnectNonce,
   members,
+  canned,
   currentUserId,
   presenceOnline,
   onlineContactIds,
@@ -43,6 +44,7 @@ export function ConversationView({
   subscribe: (fn: (event: WsEvent) => void) => () => void;
   reconnectNonce: number;
   members: Member[];
+  canned: CannedResponse[];
   currentUserId: string | undefined;
   presenceOnline: number;
   onlineContactIds: string[];
@@ -422,6 +424,7 @@ export function ConversationView({
           onTyping={isChat && !lockedToOther && !aiHandling ? handleTyping : undefined}
           onSuggest={handleSuggest}
           onFixGrammar={handleFixGrammar}
+          canned={canned}
           disabled={lockedToOther || aiHandling}
           placeholder={
             aiHandling

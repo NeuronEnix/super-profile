@@ -18,6 +18,7 @@ import { aiApi } from "./ai/ai.api";
 import { isAppHost, lookupKbDomain, normalizeHost } from "./domains/host";
 import { domainsApi } from "./domains/domains.api";
 import { kbSyncApi } from "./kb-sync/sync.api";
+import { cannedApi } from "./canned/canned.api";
 
 export { WorkspaceHub } from "./realtime/hub";
 export { RateLimiter } from "./ratelimit/limiter";
@@ -78,6 +79,7 @@ app.route("/api/v1/ws/:wsId", kbSyncApi);
 app.route("/api/v1/public/kb", kbPublicApi);
 app.route("/api/v1/ws/:wsId", aiApi);
 app.route("/api/v1/ws/:wsId", domainsApi);
+app.route("/api/v1/ws/:wsId", cannedApi);
 
 // Any /api/v1/* path that didn't match a real route is a genuine 404 — must not
 // fall through to the SPA asset fallback below.

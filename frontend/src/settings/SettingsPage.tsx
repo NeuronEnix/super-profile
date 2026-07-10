@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
+import { CannedSection } from "./CannedSection";
 import type { Invite, Member, Role } from "../lib/types";
 
 export default function SettingsPage() {
@@ -174,6 +175,8 @@ export default function SettingsPage() {
           </a>
         </p>
       </section>
+
+      {wsId && <CannedSection wsId={wsId} />}
 
       <section>
         <h2 className="mb-1 text-sm font-semibold text-slate-900">Workspace</h2>

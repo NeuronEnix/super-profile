@@ -5,7 +5,7 @@ import { useReconnectingSocket, wsUrl } from "../lib/ws";
 import { useToast } from "../components/Toast";
 import { ConversationList, type Filters } from "./ConversationList";
 import { ConversationView } from "./ConversationView";
-import type { Conversation, ConversationSnapshot, Member, WsEvent } from "../lib/types";
+import type { CannedResponse, Conversation, ConversationSnapshot, Member, WsEvent } from "../lib/types";
 import { useAuth } from "../auth/AuthContext";
 
 function upsertConversation(list: Conversation[], updated: Conversation): Conversation[] {
@@ -32,6 +32,7 @@ export default function InboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
   const [members, setMembers] = useState<Member[]>([]);
+  const [canned, setCanned] = useState<CannedResponse[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [presenceOnline, setPresenceOnline] = useState(0);
   const [onlineContactIds, setOnlineContactIds] = useState<string[]>([]);
@@ -62,6 +63,9 @@ export default function InboxPage() {
     if (!wsId) return;
     api<{ members: Member[] }>(`/api/v1/ws/${wsId}/members`)
       .then((d) => setMembers(d.members))
+      .catch(() => {});
+    api<{ canned: CannedResponse[] }>(`/api/v1/ws/${wsId}/canned`)
+      .then((d) => setCanned(d.canned))
       .catch(() => {});
   }, [wsId]);
 
@@ -137,6 +141,7 @@ export default function InboxPage() {
           subscribe={subscribe}
           reconnectNonce={reconnectNonce}
           members={members}
+          canned={canned}
           currentUserId={user?.id}
           presenceOnline={presenceOnline}
           onlineContactIds={onlineContactIds}

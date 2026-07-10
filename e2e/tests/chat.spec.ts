@@ -15,8 +15,8 @@ async function loginAgent(browser: Browser, baseURL: string, email: string) {
   await page.goto(`/auth/verify?token=${debugToken}`);
   await expect(page.getByText("Create your workspace")).toBeVisible({ timeout: 10_000 });
 
-  const wsName = `Chat Spec ${Date.now()}`;
-  await page.getByPlaceholder("Acme Corp").fill(wsName);
+  const wsName = `chat-spec-${Date.now().toString(36)}`;
+  await page.getByPlaceholder("acme").fill(wsName);
   const [createRes] = await Promise.all([
     page.waitForResponse((r) => r.url().includes("/api/v1/workspaces") && r.request().method() === "POST"),
     page.getByRole("button", { name: "Create workspace" }).click(),
@@ -47,14 +47,14 @@ test("widget <-> dashboard: live messages, typing, assign/resolve, reopen", asyn
   await agentB.page.reload();
   await agentB.page.getByText("My order is broken").first().click();
   await agentB.page.getByPlaceholder("Reply…").fill("Sorry about that — looking into it now.");
-  await agentB.page.getByRole("button", { name: "Send" }).click();
+  await agentB.page.getByRole("button", { name: "Send", exact: true }).click();
 
   // A receives it live, no reload.
   await expect(widgetFrame.getByText("Sorry about that — looking into it now.")).toBeVisible({ timeout: 5_000 });
 
   // A types -> B sees a typing indicator.
   await widgetFrame.getByPlaceholder("Reply…").fill("typing this out...");
-  await expect(agentB.page.getByText("typing…")).toBeVisible({ timeout: 5_000 });
+  await expect(agentB.page.locator('[aria-label="typing"]')).toBeVisible({ timeout: 5_000 });
   await widgetFrame.getByPlaceholder("Reply…").fill("");
 
   // B assigns to self and resolves.

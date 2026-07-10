@@ -18,11 +18,12 @@ test("magic-link login renders the dashboard shell, and logout returns to /login
 
   // Fresh user has no workspace yet — lands on the create-workspace prompt.
   await expect(page.getByText("Create your workspace")).toBeVisible({ timeout: 10_000 });
-  await page.getByPlaceholder("Acme Corp").fill(`Auth Spec Co ${Date.now()}`);
+  const slug = `auth-spec-${Date.now().toString(36)}`;
+  await page.getByPlaceholder("acme").fill(slug);
   await page.getByRole("button", { name: "Create workspace" }).click();
 
-  // Dashboard shell renders with the workspace name in the sidebar switcher.
-  await expect(page.locator("aside")).toContainText("Auth Spec Co");
+  // Dashboard shell renders with the workspace handle in the sidebar switcher.
+  await expect(page.locator("aside")).toContainText(slug);
   await expect(page.getByRole("link", { name: "Inbox" })).toBeVisible();
 
   await page.getByRole("button", { name: "Log out" }).click();

@@ -17,8 +17,8 @@ test("KB: create collection + article, publish, public page renders markdown, se
   await page.goto(`/auth/verify?token=${debugToken}`);
   await expect(page.getByText("Create your workspace")).toBeVisible({ timeout: 10_000 });
 
-  const wsName = `KB Spec ${Date.now()}`;
-  await page.getByPlaceholder("Acme Corp").fill(wsName);
+  const wsName = `kb-spec-${Date.now().toString(36)}`;
+  await page.getByPlaceholder("acme").fill(wsName);
   const [createRes] = await Promise.all([
     page.waitForResponse((r) => r.url().includes("/api/v1/workspaces") && r.request().method() === "POST"),
     page.getByRole("button", { name: "Create workspace" }).click(),

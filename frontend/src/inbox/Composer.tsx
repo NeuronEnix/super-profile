@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { matchCanned } from "../lib/canned";
+import type { CannedResponse } from "../lib/types";
 
 export type DraftSuggestion = { draft: string; sources: { id: string; title: string; slug: string }[] };
 
@@ -9,6 +11,7 @@ export function Composer({
   onFixGrammar,
   disabled,
   placeholder = "Reply…",
+  canned,
 }: {
   onSend: (text: string) => Promise<void> | void;
   onTyping?: () => void;
@@ -16,11 +19,13 @@ export function Composer({
   onFixGrammar?: (text: string) => Promise<string>;
   disabled?: boolean;
   placeholder?: string;
+  canned?: CannedResponse[];
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [fixing, setFixing] = useState(false);
+  const [cannedIdx, setCannedIdx] = useState(0);
   const [autoFix, setAutoFix] = useState(() => localStorage.getItem("sp_composer_autofix") === "1");
 
   function toggleAutoFix() {
@@ -116,7 +121,34 @@ export function Composer({
     }
   }
 
+  const cannedOpen = !!canned && canned.length > 0 && text.startsWith("/");
+  const cannedMatches = cannedOpen ? matchCanned(canned!, text.slice(1)) : [];
+
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (cannedOpen && cannedMatches.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setCannedIdx((i) => (i + 1) % cannedMatches.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setCannedIdx((i) => (i - 1 + cannedMatches.length) % cannedMatches.length);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        setText(cannedMatches[Math.min(cannedIdx, cannedMatches.length - 1)].body);
+        setCannedIdx(0);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setText("");
+        setCannedIdx(0);
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -125,18 +157,43 @@ export function Composer({
 
   return (
     <div className="border-t border-slate-200 bg-white p-3">
-      <textarea
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value);
-          notifyTyping();
-        }}
-        onKeyDown={handleKeyDown}
-        disabled={disabled}
-        placeholder={placeholder}
-        rows={2}
-        className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-50"
-      />
+      <div className="relative">
+        {cannedOpen && cannedMatches.length > 0 && (
+          <div className="absolute bottom-full left-0 z-20 mb-1 w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+            <div className="border-b border-slate-100 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+              Canned responses — ↑↓ then Enter
+            </div>
+            {cannedMatches.map((r, i) => (
+              <button
+                key={r.id}
+                onMouseEnter={() => setCannedIdx(i)}
+                onClick={() => {
+                  setText(r.body);
+                  setCannedIdx(0);
+                }}
+                className={`block w-full px-3 py-2 text-left ${
+                  i === Math.min(cannedIdx, cannedMatches.length - 1) ? "bg-indigo-50" : ""
+                }`}
+              >
+                <div className="text-xs font-medium text-slate-800">{r.title}</div>
+                <div className="truncate text-[11px] text-slate-500">{r.body}</div>
+              </button>
+            ))}
+          </div>
+        )}
+        <textarea
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            notifyTyping();
+          }}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          placeholder={placeholder}
+          rows={2}
+          className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-50"
+        />
+      </div>
       {sources && (
         <p className="mt-1 text-[11px] text-violet-600">
           ✨ AI draft{sources.length > 0 && <> · based on: {sources.map((s) => s.title).join(", ")}</>} — review
@@ -144,8 +201,20 @@ export function Composer({
         </p>
       )}
       <div className="mt-1.5 flex items-center justify-between">
-        <span className="text-[11px] text-slate-400">Enter to send, Shift+Enter for a new line</span>
+        <span className="text-[11px] text-slate-400">
+          {canned ? "Enter to send · Shift+Enter new line · / canned replies" : "Enter to send, Shift+Enter for a new line"}
+        </span>
         <div className="flex items-center gap-2">
+          {canned && canned.length > 0 && (
+            <button
+              onClick={() => setText("/")}
+              disabled={disabled}
+              title="Insert a canned response (or just type / in the reply box)"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+            >
+              ⚡ Canned
+            </button>
+          )}
           {onFixGrammar && (
             <button
               onClick={toggleAutoFix}

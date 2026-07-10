@@ -127,3 +127,5 @@ export type KbSyncSource = {
 };
 
 export type Summary = { summary: string; generatedAt: number; cached: boolean };
+
+export type CannedResponse = { id: string; title: string; body: string; tags: string; createdAt: number };

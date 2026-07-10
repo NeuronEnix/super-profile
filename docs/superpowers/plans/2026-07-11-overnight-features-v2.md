@@ -691,9 +691,9 @@ export function composeDigest(
 - `regenerateDigest(env, workspaceId): Promise<void>`
 - `buildHandlerPrompt(messages, articles, digest?: string | null)` / `buildDraftPrompt(messages, articles, digest?: string | null)`
 
-- [ ] **Step 1: Export the slug helper.** In `backend/src/kb/kb.api.ts` change `async function uniqueSlug(` to `export async function uniqueSlug(`.
+- [x] **Step 1: Export the slug helper.** In `backend/src/kb/kb.api.ts` change `async function uniqueSlug(` to `export async function uniqueSlug(`.
 
-- [ ] **Step 2: `backend/src/domains/host.ts`** — append (needs `DOMAIN` import from `../common/const`):
+- [x] **Step 2: `backend/src/domains/host.ts`** — append (needs `DOMAIN` import from `../common/const`):
 
 ```ts
 /** Where this workspace's public KB lives: its ACTIVE custom domain if it has one, else the
@@ -712,7 +712,7 @@ export async function publicKbBase(
 }
 ```
 
-- [ ] **Step 3: `backend/src/kb-sync/import.service.ts`:**
+- [x] **Step 3: `backend/src/kb-sync/import.service.ts`:**
 
 ```ts
 import { now, uuidv7 } from "../common/id";
@@ -786,7 +786,7 @@ export async function upsertImportedArticle(
 
 NOTE the INSERT binds: `?10` is used for published_at, created_at AND updated_at (same timestamp); `?11` is source_url. Count carefully — 11 placeholders, 11 binds.
 
-- [ ] **Step 4: digest generation.** Create the function inside `backend/src/kb-sync/runner.ts` (next step) as `regenerateDigest`, exported:
+- [x] **Step 4: digest generation.** Create the function inside `backend/src/kb-sync/runner.ts` (next step) as `regenerateDigest`, exported:
 
 ```ts
 export async function regenerateDigest(env: Env, workspaceId: string): Promise<void> {
@@ -830,7 +830,7 @@ export async function regenerateDigest(env: Env, workspaceId: string): Promise<v
 }
 ```
 
-- [ ] **Step 5: the DO — `backend/src/kb-sync/runner.ts`** (full file; `regenerateDigest` from Step 4 lives here too):
+- [x] **Step 5: the DO — `backend/src/kb-sync/runner.ts`** (full file; `regenerateDigest` from Step 4 lives here too):
 
 ```ts
 import { AI_CONF, KB_SYNC } from "../common/const";
@@ -1066,7 +1066,7 @@ export class KbSyncRunner {
 
 FAILED never sets `last_synced_at` → no cooldown after failure (spec rule).
 
-- [ ] **Step 6: `backend/src/kb-sync/sync.api.ts`:**
+- [x] **Step 6: `backend/src/kb-sync/sync.api.ts`:**
 
 ```ts
 import { Hono } from "hono";
@@ -1120,7 +1120,7 @@ kbSyncApi.post("/kb/sync", requireAdmin, validate(SyncBody, "json"), async (c) =
 });
 ```
 
-- [ ] **Step 7: AI injection.** In `backend/src/ai/handler.ts`:
+- [x] **Step 7: AI injection.** In `backend/src/ai/handler.ts`:
   - Change `buildHandlerPrompt(messages: MessageRow[], articles: KbArticle[])` to `buildHandlerPrompt(messages: MessageRow[], articles: KbArticle[], digest?: string | null)` and inside, before `const kb =`, add:
     ```ts
     const map = digest ? `Documentation map (everything available):\n${digest}\n\n` : "";
@@ -1135,7 +1135,7 @@ kbSyncApi.post("/kb/sync", requireAdmin, validate(SyncBody, "json"), async (c) =
   - `buildDraftPrompt(messages, articles, digest?: string | null)` — same `map` prepend pattern.
   - In `suggestReply`, after the conversation existence check, load the digest: `const wsRow = await env.DB.prepare("SELECT kb_digest as kbDigest FROM workspaces WHERE id=?1").bind(workspaceId).first<{ kbDigest: string | null }>();` and pass `wsRow?.kbDigest` into `buildDraftPrompt`.
 
-- [ ] **Step 8: Injection unit tests** — `backend/test/ai-digest-injection.test.ts`:
+- [x] **Step 8: Injection unit tests** — `backend/test/ai-digest-injection.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1160,11 +1160,11 @@ describe("digest injection", () => {
 });
 ```
 
-- [ ] **Step 9: Mount + export.** In `backend/src/index.ts`: add `import { kbSyncApi } from "./kb-sync/sync.api";` and `export { KbSyncRunner } from "./kb-sync/runner";` (next to the other DO exports), and mount `app.route("/api/v1/ws/:wsId", kbSyncApi);` after the `kbApi` mount.
+- [x] **Step 9: Mount + export.** In `backend/src/index.ts`: add `import { kbSyncApi } from "./kb-sync/sync.api";` and `export { KbSyncRunner } from "./kb-sync/runner";` (next to the other DO exports), and mount `app.route("/api/v1/ws/:wsId", kbSyncApi);` after the `kbApi` mount.
 
-- [ ] **Step 10: All tests green**: `cd backend && pnpm test`. Expected: every suite passes including the two new files.
+- [x] **Step 10: All tests green**: `cd backend && pnpm test`. Expected: every suite passes including the two new files.
 
-- [ ] **Step 11: Local end-to-end sanity (no external fetches).** Build + start dev: from repo root `pnpm --dir frontend build`, then `cd backend && npx wrangler dev` (background). Use curl:
+- [x] **Step 11: Local end-to-end sanity (no external fetches).** Build + start dev: from repo root `pnpm --dir frontend build`, then `cd backend && npx wrangler dev` (background). Use curl:
   1. Login via debug flow (see `e2e/scripts/ws-check.mjs` pattern): `POST /api/v1/auth/magic-link` with `X-Debug-Auth: $DEBUG_AUTH_SECRET` (value in `backend/.dev.vars`) → `POST /api/v1/auth/verify` → accessToken; create a workspace.
   2. `POST /api/v1/ws/:wsId/kb/sync` with `{"url": "not a url"}` → expect `{"code":"KB_SYNC_INVALID_URL"...}`.
   3. `POST` with `{"url": "sp.hyugorix.com"}` → expect `KB_SYNC_INVALID_URL` (own-zone guard).
@@ -1172,7 +1172,7 @@ describe("digest injection", () => {
   5. `GET /api/v1/ws/:wsId/kb/sync` → `{"source":null,"cooldownMin":1}`.
   Kill wrangler dev afterwards. (A real crawl is NOT run locally — the target would be an external site; that happens once on prod in Task 5.)
 
-- [ ] **Step 12: Commit**: `git add -A && git commit -m "feat(kb-sync): KbSyncRunner DO, import upsert, sync API, digest wired into AI handler+drafts"`
+- [x] **Step 12: Commit**: `git add -A && git commit -m "feat(kb-sync): KbSyncRunner DO, import upsert, sync API, digest wired into AI handler+drafts"`
 
 ---
 

@@ -17,9 +17,11 @@ import { kbPublicApi } from "./kb/public.api";
 import { aiApi } from "./ai/ai.api";
 import { isAppHost, lookupKbDomain, normalizeHost } from "./domains/host";
 import { domainsApi } from "./domains/domains.api";
+import { kbSyncApi } from "./kb-sync/sync.api";
 
 export { WorkspaceHub } from "./realtime/hub";
 export { RateLimiter } from "./ratelimit/limiter";
+export { KbSyncRunner } from "./kb-sync/runner";
 
 const app = new Hono<HonoEnv>();
 
@@ -72,6 +74,7 @@ app.route("/api/v1/widget", widgetApi);
 app.route("/api/v1/ws-connect", wsConnectApi);
 app.route("/api/v1/email", emailApi);
 app.route("/api/v1/ws/:wsId", kbApi);
+app.route("/api/v1/ws/:wsId", kbSyncApi);
 app.route("/api/v1/public/kb", kbPublicApi);
 app.route("/api/v1/ws/:wsId", aiApi);
 app.route("/api/v1/ws/:wsId", domainsApi);

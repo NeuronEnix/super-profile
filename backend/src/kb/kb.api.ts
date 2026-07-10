@@ -41,7 +41,7 @@ const ArticlePatchBody = z.object({
   status: z.enum([ARTICLE.STATUS.DRAFT, ARTICLE.STATUS.PUBLISHED]).optional(),
 });
 
-async function uniqueSlug(
+export async function uniqueSlug(
   db: D1Database,
   table: "kb_collections" | "kb_articles",
   workspaceId: string,

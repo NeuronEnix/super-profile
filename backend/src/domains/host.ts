@@ -43,3 +43,18 @@ export async function lookupKbDomain(db: D1Database, host: string): Promise<KbDo
     .bind(host, DOMAIN.STATUS.ACTIVE)
     .first<KbDomain>();
 }
+
+/** Where this workspace's public KB lives: its ACTIVE custom domain if it has one, else the
+ * app-hosted /kb/:slug page. Returned base is always used as `${base}/a/${articleSlug}`. */
+export async function publicKbBase(
+  db: D1Database,
+  workspaceId: string,
+  wsSlug: string,
+  appUrl: string,
+): Promise<string> {
+  const row = await db
+    .prepare("SELECT hostname FROM custom_domains WHERE workspace_id=?1 AND status=?2 LIMIT 1")
+    .bind(workspaceId, DOMAIN.STATUS.ACTIVE)
+    .first<{ hostname: string }>();
+  return row ? `https://${row.hostname}` : `${appUrl.replace(/\/$/, "")}/kb/${wsSlug}`;
+}

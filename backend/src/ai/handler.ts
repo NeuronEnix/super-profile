@@ -3,6 +3,7 @@ import { getConfig } from "../config/env.config";
 import { searchArticles, stripMarkdown } from "../kb/search";
 import { sendMessage } from "../realtime/hub";
 import { sendReply } from "../email/outbound";
+import { publicKbBase } from "../domains/host";
 import { buildKbQuery } from "./draft";
 import { runWithTimeout } from "./summary";
 import type { Env } from "../types";
@@ -38,7 +39,8 @@ function systemPrompt(workspaceName: string): string {
     `You are handling a live customer support conversation for ${workspaceName} while the human agent is away. Rules:\n` +
     "- Reply like a busy, friendly human teammate: plain text, short and direct — 1-3 sentences unless steps are essential. " +
     "No sign-offs, and NEVER introduce yourself or say you are an AI or assistant.\n" +
-    "- Only state facts found in the knowledge-base articles provided. When an article answers the question, " +
+    "- Only state facts found in the knowledge-base articles provided. The documentation map shows everything that exists — " +
+    "when the customer's answer lives in a mapped article that isn't excerpted, share that article's URL. When an article answers the question, " +
     "give a one-or-two-line overview and include the article's URL so the customer can read the full steps — never paste the whole article.\n" +
     `- If the customer asks for a human, or the articles don't contain what you need to actually resolve the request, output exactly ${ESCALATE_TOKEN} and nothing else.`
   );
@@ -51,7 +53,8 @@ const SENDER_LABEL: Record<string, string> = {
   SYSTEM: "SYSTEM",
 };
 
-export function buildHandlerPrompt(messages: MessageRow[], articles: KbArticle[]): string {
+export function buildHandlerPrompt(messages: MessageRow[], articles: KbArticle[], digest?: string | null): string {
+  const map = digest ? `Documentation map (everything available):\n${digest}\n\n` : "";
   const kb =
     articles.length > 0
       ? articles.map((a, i) => `[${i + 1}] ${a.title}\nURL: ${a.url}\n${a.excerpt}`).join("\n\n")
@@ -60,7 +63,7 @@ export function buildHandlerPrompt(messages: MessageRow[], articles: KbArticle[]
     .map((m) => `[${SENDER_LABEL[m.senderType] ?? m.senderType}] ${m.bodyText.slice(0, 500)}`)
     .join("\n");
   return (
-    `Knowledge base articles you can link to:\n${kb}\n\n` +
+    `${map}Knowledge base articles you can link to:\n${kb}\n\n` +
     `Conversation so far (newest last):\n${transcript}\n\n` +
     `Write your next chat reply to the customer, or output exactly ${ESCALATE_TOKEN}.`
   );
@@ -151,9 +154,9 @@ export async function runAiTurn(
     const conv = await loadConversation(env, workspaceId, conversationId);
     if (!conv || !conv.aiHandling || conv.status === CONVERSATION.STATUS.RESOLVED) return;
 
-    const workspace = await env.DB.prepare("SELECT id, name, slug FROM workspaces WHERE id=?1")
+    const workspace = await env.DB.prepare("SELECT id, name, slug, kb_digest as kbDigest FROM workspaces WHERE id=?1")
       .bind(workspaceId)
-      .first<{ id: string; name: string; slug: string }>();
+      .first<{ id: string; name: string; slug: string; kbDigest: string | null }>();
     if (!workspace) return;
 
     const { results } = await env.DB.prepare(
@@ -180,13 +183,13 @@ export async function runAiTurn(
         .bind(workspaceId, ...hits.map((h) => h.id))
         .all<{ id: string; title: string; slug: string; bodyMd: string }>();
       const byId = new Map(rows.map((r) => [r.id, r]));
-      const appUrl = getConfig(env).APP_URL.replace(/\/$/, "");
+      const kbBase = await publicKbBase(env.DB, workspaceId, workspace.slug, getConfig(env).APP_URL);
       articles = hits
         .map((h) => byId.get(h.id))
         .filter((r): r is NonNullable<typeof r> => !!r)
         .map((r) => ({
           title: r.title,
-          url: `${appUrl}/kb/${workspace.slug}/a/${r.slug}`,
+          url: `${kbBase}/a/${r.slug}`,
           excerpt: stripMarkdown(r.bodyMd).slice(0, AI_CONF.HANDLER.KB_SNIPPET_CHARS),
         }));
     }
@@ -197,7 +200,7 @@ export async function runAiTurn(
         env.AI.run(AI_CONF.MODEL, {
           messages: [
             { role: "system", content: systemPrompt(workspace.name) },
-            { role: "user", content: buildHandlerPrompt(window, articles) },
+            { role: "user", content: buildHandlerPrompt(window, articles, workspace.kbDigest) },
           ],
           max_tokens: AI_CONF.HANDLER.MAX_TOKENS,
         }),

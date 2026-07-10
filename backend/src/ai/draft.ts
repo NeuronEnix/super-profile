@@ -33,14 +33,19 @@ export function buildKbQuery(messages: MessageRow[]): string {
   return clip(contactText.replace(/\s+/g, " ").trim(), AI_CONF.DRAFT.QUERY_CHARS);
 }
 
-export function buildDraftPrompt(messages: MessageRow[], articles: { title: string; excerpt: string }[]): string {
+export function buildDraftPrompt(
+  messages: MessageRow[],
+  articles: { title: string; excerpt: string }[],
+  digest?: string | null,
+): string {
+  const map = digest ? `Documentation map (everything available):\n${digest}\n\n` : "";
   const kb =
     articles.length > 0
       ? articles.map((a, i) => `[${i + 1}] ${a.title}\n${a.excerpt}`).join("\n\n")
       : "(none found — do not invent facts)";
   const transcript = messages.map((m) => `[${m.senderType}] ${clip(m.bodyText, 500)}`).join("\n");
   return (
-    `Knowledge base excerpts:\n${kb}\n\n` +
+    `${map}Knowledge base excerpts:\n${kb}\n\n` +
     `Conversation (newest last):\n${transcript}\n\n` +
     "Draft the agent's next reply to the customer."
   );
@@ -53,6 +58,10 @@ export async function suggestReply(env: Env, workspaceId: string, conversationId
     .bind(conversationId, workspaceId)
     .first<{ id: string }>();
   if (!conv) throw ctxErr.conversation.notFound();
+
+  const wsRow = await env.DB.prepare("SELECT kb_digest as kbDigest FROM workspaces WHERE id=?1")
+    .bind(workspaceId)
+    .first<{ kbDigest: string | null }>();
 
   const { results } = await env.DB.prepare(
     "SELECT sender_type as senderType, body_text as bodyText FROM messages WHERE conversation_id=?1 ORDER BY id DESC LIMIT ?2",
@@ -86,7 +95,7 @@ export async function suggestReply(env: Env, workspaceId: string, conversationId
       env.AI.run(AI_CONF.MODEL, {
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: buildDraftPrompt(window, articles) },
+          { role: "user", content: buildDraftPrompt(window, articles, wsRow?.kbDigest) },
         ],
         max_tokens: AI_CONF.DRAFT.MAX_TOKENS,
       }),

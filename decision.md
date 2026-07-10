@@ -476,3 +476,18 @@ was fixed, unit/e2e-verified locally, deployed, and re-verified against prod in 
 - **Inbox card status rail.** Each conversation card now has a colored left rail + tiny capsule:
   grey "Unassigned", orange with the assignee's name ("Me" for you) when in progress, green "Closed"
   when resolved. Resolved wins over assignment (a closed-but-previously-assigned ticket shows green).
+- **Workspace create is a single handle field with a live rules checklist.** Dropped the separate
+  display-name input — a workspace is now identified by one handle that serves as its name, email
+  prefix and KB slug (name column = slug on insert; still globally unique + permanent). The create
+  form shows four rules that tick green in real time as you type (charset, starts-with-letter, no
+  trailing dot/hyphen, 2–40 chars); submit stays disabled until all pass. Validated again on the
+  backend via the same Zod regex.
+- **Inbox status colors updated:** unassigned = red (needs attention), in progress (assigned) =
+  yellow, resolved = green. (Previously grey/orange/green.)
+- **Users can set their own display name** (Settings → "Your profile", `PATCH /api/v1/auth/me`,
+  1–80 chars). The name is what teammates see on conversations you own (assignee capsule / member
+  list). Verified: set → persisted → shown in the team list.
+- **Article slug validation.** The KB article slug is validated to 5–100 chars, lowercase letters,
+  digits and hyphens only, no leading/trailing/doubled hyphen — regex `^[a-z0-9]+(?:-[a-z0-9]+)*$`,
+  enforced on the backend (`ArticlePatchBody`) and live in the editor (red field + rule hint +
+  disabled Save/Publish until valid). Unit-tested; 86 backend tests pass.

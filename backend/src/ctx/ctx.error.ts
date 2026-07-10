@@ -55,8 +55,6 @@ export namespace ctxErr {
       new CtxError({ name: "WORKSPACE_ADMIN_REQUIRED", msg: "Only workspace admins can do this", ...e }),
     slugTaken: (e?: TResErr) =>
       new CtxError({ name: "WORKSPACE_SLUG_TAKEN", msg: "That workspace handle is already taken", ...e }),
-    nameTaken: (e?: TResErr) =>
-      new CtxError({ name: "WORKSPACE_NAME_TAKEN", msg: "That workspace name is already taken", ...e }),
   };
 
   export const user = {

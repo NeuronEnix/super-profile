@@ -19,9 +19,9 @@ function relativeTime(ts: number): string {
 }
 
 /**
- * The colored left rail + optional capsule encode a conversation's state at a glance:
- * green = closed (resolved), orange = in progress (assigned — capsule names the agent),
- * grey = unassigned/open.
+ * The colored left rail + capsule encode a conversation's state at a glance:
+ * green = closed (resolved), yellow = in progress (assigned — capsule names the agent),
+ * red = unassigned (needs attention).
  */
 function statusAccent(
   c: Conversation,
@@ -34,9 +34,9 @@ function statusAccent(
   if (c.assigneeId) {
     const assignee = members.find((m) => m.userId === c.assigneeId);
     const name = c.assigneeId === currentUserId ? "Me" : (assignee?.name ?? assignee?.email ?? "Assigned");
-    return { barColor: "#fb923c", capsule: { text: name, className: "bg-orange-100 text-orange-700" } };
+    return { barColor: "#eab308", capsule: { text: name, className: "bg-yellow-100 text-yellow-800" } };
   }
-  return { barColor: "#64748b", capsule: { text: "Unassigned", className: "bg-slate-100 text-slate-500" } };
+  return { barColor: "#ef4444", capsule: { text: "Unassigned", className: "bg-red-100 text-red-700" } };
 }
 
 export function ConversationList({

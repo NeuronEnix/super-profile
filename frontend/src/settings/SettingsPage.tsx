@@ -7,13 +7,15 @@ import type { Invite, Member, Role } from "../lib/types";
 
 export default function SettingsPage() {
   const { wsId } = useParams();
-  const { user, workspaces } = useAuth();
+  const { user, workspaces, refetchMe } = useAuth();
   const { showError } = useToast();
   const ws = workspaces.find((w) => w.id === wsId);
   const isAdmin = ws?.role === "ADMIN";
 
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [profileName, setProfileName] = useState(user?.name ?? "");
+  const [savedName, setSavedName] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<Role>("AGENT");
   const [busy, setBusy] = useState(false);
@@ -40,6 +42,27 @@ export default function SettingsPage() {
   useEffect(() => {
     load().catch((err) => showError(err instanceof ApiError ? err.message : "Something went wrong"));
   }, [load, showError]);
+
+  useEffect(() => {
+    setProfileName(user?.name ?? "");
+  }, [user?.name]);
+
+  async function handleSaveProfile(e: FormEvent) {
+    e.preventDefault();
+    const name = profileName.trim();
+    if (!name) return;
+    setBusy(true);
+    try {
+      await api("/api/v1/auth/me", { method: "PATCH", body: { name } });
+      await refetchMe();
+      setSavedName(true);
+      setTimeout(() => setSavedName(false), 2000);
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleInvite(e: FormEvent) {
     e.preventDefault();
@@ -94,6 +117,29 @@ export default function SettingsPage() {
         <h1 className="text-lg font-semibold text-slate-900">Settings</h1>
         <p className="mt-1 text-sm text-slate-500">Manage {ws.name}'s workspace and team.</p>
       </div>
+
+      <section>
+        <h2 className="mb-1 text-sm font-semibold text-slate-900">Your profile</h2>
+        <p className="mb-3 text-xs text-slate-400">
+          Signed in as {user?.email}. Your name is shown to teammates on the conversations you handle.
+        </p>
+        <form onSubmit={handleSaveProfile} className="flex gap-2">
+          <input
+            value={profileName}
+            onChange={(e) => setProfileName(e.target.value)}
+            placeholder="Your name"
+            maxLength={80}
+            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+          <button
+            type="submit"
+            disabled={busy || !profileName.trim() || profileName.trim() === (user?.name ?? "")}
+            className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+          >
+            {savedName ? "Saved!" : "Save"}
+          </button>
+        </form>
+      </section>
 
       <section>
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Install the widget</h2>

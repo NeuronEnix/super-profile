@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidSlug } from "../src/common/slug";
+import { isValidSlug, isValidArticleSlug } from "../src/common/slug";
 
 describe("isValidSlug (workspace handle rules)", () => {
   it("accepts lowercase letters", () => {
@@ -45,5 +45,39 @@ describe("isValidSlug (workspace handle rules)", () => {
 
   it("accepts a single lowercase letter (format-wise)", () => {
     expect(isValidSlug("a")).toBe(true);
+  });
+});
+
+describe("isValidArticleSlug (KB article slug rules)", () => {
+  it("accepts lowercase letters, numbers and hyphens (5–100 chars)", () => {
+    expect(isValidArticleSlug("getting-started")).toBe(true);
+    expect(isValidArticleSlug("refund-policy-2024")).toBe(true);
+    expect(isValidArticleSlug("hello")).toBe(true);
+  });
+
+  it("rejects fewer than 5 characters", () => {
+    expect(isValidArticleSlug("faq")).toBe(false);
+    expect(isValidArticleSlug("a-b")).toBe(false);
+  });
+
+  it("rejects more than 100 characters", () => {
+    expect(isValidArticleSlug("a".repeat(101))).toBe(false);
+    expect(isValidArticleSlug("a".repeat(100))).toBe(true);
+  });
+
+  it("rejects uppercase letters", () => {
+    expect(isValidArticleSlug("Getting-Started")).toBe(false);
+  });
+
+  it("rejects leading, trailing or doubled hyphens", () => {
+    expect(isValidArticleSlug("-hello")).toBe(false);
+    expect(isValidArticleSlug("hello-")).toBe(false);
+    expect(isValidArticleSlug("hel--lo")).toBe(false);
+  });
+
+  it("rejects non-alphanumeric symbols (dots, spaces, underscores)", () => {
+    expect(isValidArticleSlug("hello.world")).toBe(false);
+    expect(isValidArticleSlug("hello world")).toBe(false);
+    expect(isValidArticleSlug("hello_world")).toBe(false);
   });
 });

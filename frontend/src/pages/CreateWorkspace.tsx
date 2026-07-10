@@ -3,32 +3,44 @@ import { useNavigate } from "react-router";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
-import { slugify, isValidSlug } from "../lib/slug";
 import type { Workspace } from "../lib/types";
 
+/** Each rule ticks green the moment the handle satisfies it — live, as the user types. */
+function handleRules(v: string): { label: string; ok: boolean }[] {
+  return [
+    { label: "Lowercase letters, numbers, dots and hyphens only", ok: v.length > 0 && /^[a-z0-9.-]+$/.test(v) },
+    { label: "Starts with a letter", ok: /^[a-z]/.test(v) },
+    { label: "Doesn't end with a dot or hyphen", ok: v.length > 0 && /[a-z0-9]$/.test(v) },
+    { label: "Between 2 and 40 characters", ok: v.length >= 2 && v.length <= 40 },
+  ];
+}
+
+function Rule({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <li className={`flex items-center gap-2 ${ok ? "text-emerald-600" : "text-slate-400"}`}>
+      <span
+        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+          ok ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"
+        }`}
+      >
+        {ok ? "✓" : "○"}
+      </span>
+      {label}
+    </li>
+  );
+}
+
 export default function CreateWorkspace() {
-  const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [slugTouched, setSlugTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const { refetchMe, workspaces } = useAuth();
   const { showError } = useToast();
   const navigate = useNavigate();
   const hasWorkspaces = workspaces.length > 0;
 
-  // The handle auto-tracks the name until the user edits it directly.
-  function onNameChange(value: string) {
-    setName(value);
-    if (!slugTouched) setSlug(slugify(value));
-  }
-  function onSlugChange(value: string) {
-    setSlugTouched(true);
-    // Keep it in the allowed alphabet as they type; full-format validity is checked separately.
-    setSlug(value.toLowerCase().replace(/[^a-z0-9.-]/g, ""));
-  }
-
-  const slugValid = slug.length >= 2 && slug.length <= 40 && isValidSlug(slug);
-  const canSubmit = name.trim().length > 0 && slugValid && !loading;
+  const rules = handleRules(slug);
+  const slugValid = rules.every((r) => r.ok);
+  const canSubmit = slugValid && !loading;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -37,7 +49,7 @@ export default function CreateWorkspace() {
     try {
       const { workspace } = await api<{ workspace: Workspace }>("/api/v1/workspaces", {
         method: "POST",
-        body: { name: name.trim(), slug },
+        body: { slug },
       });
       await refetchMe();
       navigate(`/w/${workspace.id}`, { replace: true });
@@ -56,38 +68,32 @@ export default function CreateWorkspace() {
         </h1>
         <p className="mb-6 text-sm text-slate-500">This is where your team and customer conversations live.</p>
 
-        <label className="mb-1 block text-xs font-medium text-slate-600">Workspace name</label>
+        <label className="mb-1 block text-xs font-medium text-slate-600">Workspace handle</label>
         <input
           required
           autoFocus
-          value={name}
-          onChange={(e) => onNameChange(e.target.value)}
-          placeholder="Acme Corp"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-        />
-
-        <label className="mb-1 mt-4 block text-xs font-medium text-slate-600">Handle</label>
-        <input
-          required
           value={slug}
-          onChange={(e) => onSlugChange(e.target.value)}
+          onChange={(e) => setSlug(e.target.value)}
           placeholder="acme"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           aria-invalid={slug.length > 0 && !slugValid}
-          className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 ${
+          className={`w-full rounded-lg border px-3 py-2 font-mono text-sm text-slate-900 focus:outline-none focus:ring-1 ${
             slug.length > 0 && !slugValid
               ? "border-red-400 focus:border-red-500 focus:ring-red-500"
               : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
           }`}
         />
-        {slug.length > 0 && !slugValid ? (
-          <p className="mt-1 text-xs text-red-600">
-            Lowercase letters, numbers, dots and hyphens. Start with a letter; don't end with a dot or hyphen (2–40 chars).
-          </p>
-        ) : (
-          <p className="mt-1 text-xs text-slate-400">
-            Used for email and links, e.g. <span className="font-mono">{slug || "acme"}@inbox.hyugorix.com</span>
-          </p>
-        )}
+        <p className="mt-1.5 text-xs text-slate-400">
+          Used for email and links, e.g. <span className="font-mono">{slug || "acme"}@inbox.hyugorix.com</span>
+        </p>
+
+        <ul className="mt-3 space-y-1 text-xs">
+          {rules.map((r) => (
+            <Rule key={r.label} ok={r.ok} label={r.label} />
+          ))}
+        </ul>
 
         <button
           type="submit"

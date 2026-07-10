@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { renderMarkdown } from "../lib/markdown";
-import { slugify } from "../lib/slug";
+import { slugify, isValidArticleSlug } from "../lib/slug";
 import type { ArticleStatus, KbArticle, KbCollection } from "../lib/types";
 
 type ArticlePatch = {
@@ -40,6 +40,8 @@ export function ArticleEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const preview = useMemo(() => renderMarkdown(bodyMd), [bodyMd]);
+  const slugValid = isValidArticleSlug(slug);
+  const canSave = title.trim().length > 0 && slugValid;
 
   function handleTitleChange(value: string) {
     setTitle(value);
@@ -79,14 +81,14 @@ export function ArticleEditor({
         <div className="flex gap-2">
           <button
             onClick={() => handleSave("DRAFT")}
-            disabled={!!saving}
+            disabled={!!saving || !canSave}
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
             {saving === "draft" ? "Saving…" : "Save draft"}
           </button>
           <button
             onClick={() => handleSave("PUBLISHED")}
-            disabled={!!saving}
+            disabled={!!saving || !canSave}
             className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             {saving === "publish" ? "Publishing…" : "Publish"}
@@ -114,15 +116,28 @@ export function ArticleEditor({
             </option>
           ))}
         </select>
-        <input
-          value={slug}
-          onChange={(e) => {
-            setSlugTouched(true);
-            setSlug(e.target.value);
-          }}
-          placeholder="slug"
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono text-xs"
-        />
+        <div>
+          <input
+            value={slug}
+            onChange={(e) => {
+              setSlugTouched(true);
+              setSlug(e.target.value);
+            }}
+            placeholder="article-slug"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            aria-invalid={slug.length > 0 && !slugValid}
+            className={`w-full rounded-lg border px-3 py-2 font-mono text-xs focus:outline-none focus:ring-1 ${
+              slug.length > 0 && !slugValid
+                ? "border-red-400 focus:border-red-500 focus:ring-red-500"
+                : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
+            }`}
+          />
+          <p className={`mt-1 text-[10px] ${slug.length > 0 && !slugValid ? "text-red-600" : "text-slate-400"}`}>
+            5–100 chars · lowercase letters, numbers &amp; hyphens · no leading/trailing hyphen
+          </p>
+        </div>
       </div>
 
       <div className="flex gap-1 border-b border-slate-200 px-4 py-2">

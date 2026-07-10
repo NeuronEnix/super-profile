@@ -7,6 +7,14 @@ export function isValidSlug(input: string): boolean {
   return SLUG_REGEX.test(input);
 }
 
+// KB article slug rules: 5–100 chars, lowercase letters/digits and hyphens only, no leading,
+// trailing or doubled hyphen (so every segment has at least one alphanumeric character).
+export const ARTICLE_SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function isValidArticleSlug(input: string): boolean {
+  return input.length >= 5 && input.length <= 100 && ARTICLE_SLUG_REGEX.test(input);
+}
+
 export function slugify(input: string): string {
   return (
     input

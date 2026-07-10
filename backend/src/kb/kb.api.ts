@@ -6,7 +6,7 @@ import { validate } from "../middleware/validate";
 import { authMiddleware, wsMiddleware } from "../middleware/auth";
 import { ARTICLE } from "../common/const";
 import { now, uuidv7 } from "../common/id";
-import { slugify, randomSuffix } from "../common/slug";
+import { slugify, randomSuffix, ARTICLE_SLUG_REGEX } from "../common/slug";
 import { stripMarkdown } from "./search";
 import type { HonoEnv } from "../common/hono-env";
 
@@ -29,7 +29,15 @@ const ArticlePatchBody = z.object({
   title: z.string().min(1).max(200).optional(),
   collectionId: z.string().nullable().optional(),
   bodyMd: z.string().max(200_000).optional(),
-  slug: z.string().min(1).max(200).optional(),
+  slug: z
+    .string()
+    .min(5)
+    .max(100)
+    .regex(
+      ARTICLE_SLUG_REGEX,
+      "Slug must be 5–100 characters: lowercase letters, numbers and hyphens only, no leading or trailing hyphen",
+    )
+    .optional(),
   status: z.enum([ARTICLE.STATUS.DRAFT, ARTICLE.STATUS.PUBLISHED]).optional(),
 });
 

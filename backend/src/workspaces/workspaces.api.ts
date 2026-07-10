@@ -9,11 +9,10 @@ import { now, uuidv7 } from "../common/id";
 import { SLUG_REGEX } from "../common/slug";
 import type { HonoEnv } from "../common/hono-env";
 
+// A workspace is identified by a single handle — it's the display name, the inbound-email prefix
+// (<handle>@inbox.hyugorix.com) and the KB URL segment all at once. Validated to the slug format;
+// globally unique (enforced below, no silent suffixing).
 const CreateWorkspaceBody = z.object({
-  name: z.string().min(1).max(80),
-  // The handle doubles as the inbound-email prefix and KB URL segment, so it's the user's to
-  // choose (predictable) rather than auto-derived — validated to the slug format, uniqueness
-  // enforced below (no silent suffixing).
   slug: z
     .string()
     .min(2)
@@ -32,16 +31,11 @@ export const workspacesApi = new Hono<HonoEnv>();
 workspacesApi.use("*", authMiddleware);
 
 workspacesApi.post("/", validate(CreateWorkspaceBody, "json"), async (c) => {
-  const { name, slug } = c.get("body") as z.infer<typeof CreateWorkspaceBody>;
+  const { slug } = c.get("body") as z.infer<typeof CreateWorkspaceBody>;
   const userId = c.get("userId");
-  // Both the handle and the display name are globally unique. Name uniqueness is case-insensitive
-  // and trim-normalized so "Acme" / "acme " can't both exist. Neither is editable after creation.
-  const trimmedName = name.trim();
+  // The handle is the workspace's identity and its display name; it's globally unique and permanent.
   if (await c.env.DB.prepare("SELECT 1 FROM workspaces WHERE slug=?1").bind(slug).first()) {
     throw ctxErr.workspace.slugTaken();
-  }
-  if (await c.env.DB.prepare("SELECT 1 FROM workspaces WHERE lower(name)=lower(?1)").bind(trimmedName).first()) {
-    throw ctxErr.workspace.nameTaken();
   }
   const workspaceId = uuidv7();
   const widgetKey = `wk_${uuidv7().replaceAll("-", "")}`;
@@ -49,13 +43,13 @@ workspacesApi.post("/", validate(CreateWorkspaceBody, "json"), async (c) => {
   await c.env.DB.batch([
     c.env.DB.prepare(
       "INSERT INTO workspaces (id, name, slug, widget_key, widget_color, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-    ).bind(workspaceId, trimmedName, slug, widgetKey, "#4f46e5", userId, ts),
+    ).bind(workspaceId, slug, slug, widgetKey, "#4f46e5", userId, ts),
     c.env.DB.prepare(
       "INSERT INTO workspace_members (workspace_id, user_id, role, created_at) VALUES (?1, ?2, ?3, ?4)",
     ).bind(workspaceId, userId, ROLE.ADMIN, ts),
   ]);
   return ok(c, {
-    workspace: { id: workspaceId, name: trimmedName, slug, widgetKey, widgetColor: "#4f46e5" },
+    workspace: { id: workspaceId, name: slug, slug, widgetKey, widgetColor: "#4f46e5" },
   });
 });
 

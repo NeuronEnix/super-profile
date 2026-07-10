@@ -17,6 +17,7 @@ import type { HonoEnv } from "../common/hono-env";
 
 const MagicLinkBody = z.object({ email: z.string().email() });
 const VerifyBody = z.object({ token: z.string().min(1) });
+const UpdateMeBody = z.object({ name: z.string().trim().min(1).max(80) });
 
 function refreshCookieOpts() {
   return {
@@ -154,4 +155,16 @@ authApi.get("/me", authMiddleware, async (c) => {
     .bind(userId)
     .all<{ id: string; name: string; slug: string; widgetKey: string; widgetColor: string; role: string }>();
   return ok(c, { user, workspaces: results });
+});
+
+// Let a signed-in user set their own display name (shown to teammates on assigned conversations).
+authApi.patch("/me", authMiddleware, validate(UpdateMeBody, "json"), async (c) => {
+  const userId = c.get("userId");
+  const { name } = c.get("body") as z.infer<typeof UpdateMeBody>;
+  await c.env.DB.prepare("UPDATE users SET name=?1 WHERE id=?2").bind(name, userId).run();
+  const user = await c.env.DB.prepare("SELECT id, email, name FROM users WHERE id=?1")
+    .bind(userId)
+    .first<UserRow>();
+  if (!user) throw ctxErr.user.notFound();
+  return ok(c, { user });
 });

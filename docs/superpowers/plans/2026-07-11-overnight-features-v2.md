@@ -149,10 +149,10 @@ and inside `AI_CONF` (after the `HANDLER` line, before ` } as const`):
 - `humanizeMs(ms: number): string`
 - `nextBatch(frontier: string[], visitedCount: number, importedCount: number): number` — how many URLs to process this alarm
 
-- [ ] **Step 1: Install the parser.** Run from repo root: `pnpm --dir backend add node-html-parser`
+- [x] **Step 1: Install the parser.** Run from repo root: `pnpm --dir backend add node-html-parser`
 Expected: added to backend/package.json dependencies.
 
-- [ ] **Step 2: Write the failing tests** — `backend/test/kb-sync-crawl.test.ts`:
+- [x] **Step 2: Write the failing tests** — `backend/test/kb-sync-crawl.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -297,9 +297,9 @@ describe("cooldown + humanize + nextBatch", () => {
 });
 ```
 
-- [ ] **Step 3: Run tests to verify they fail.** `cd backend && pnpm test kb-sync-crawl` — FAIL (module not found).
+- [x] **Step 3: Run tests to verify they fail.** `cd backend && pnpm test kb-sync-crawl` — FAIL (module not found).
 
-- [ ] **Step 4: Implement `backend/src/kb-sync/crawl.ts`:**
+- [x] **Step 4: Implement `backend/src/kb-sync/crawl.ts`:**
 
 ```ts
 import { parse, HTMLElement, Node, NodeType } from "node-html-parser";
@@ -557,9 +557,9 @@ export function nextBatch(frontier: string[], visitedCount: number, importedCoun
 }
 ```
 
-- [ ] **Step 5: Run tests until green.** `cd backend && pnpm test` — ALL suites pass. If a markdown expectation is off by whitespace, fix the serializer (not the test) unless the test itself asserts something the spec doesn't require.
+- [x] **Step 5: Run tests until green.** `cd backend && pnpm test` — ALL suites pass. If a markdown expectation is off by whitespace, fix the serializer (not the test) unless the test itself asserts something the spec doesn't require.
 
-- [ ] **Step 6: Commit**: `git add -A && git commit -m "feat(kb-sync): crawler pure functions — url normalization, extraction, html-to-markdown"`
+- [x] **Step 6: Commit**: `git add -A && git commit -m "feat(kb-sync): crawler pure functions — url normalization, extraction, html-to-markdown"`
 
 ---
 

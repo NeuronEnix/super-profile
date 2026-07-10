@@ -418,13 +418,17 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
 
 ---
 
-### Task 12: Custom domains (lite) — **DEFERRED: DO NOT EXECUTE OVERNIGHT**
+### Task 12: Custom domains — **DONE DIFFERENTLY (morning session, 2026-07-11)**
 
-> User decision (post-review): skip this feature tonight; it will be done in the morning with
-> the user. Overnight scope: (a) README "Custom domains" section explaining the full approach
-> (DoH TXT verification + Cloudflare-for-SaaS SSL) — that's part of Task 13; (b) the
-> `custom_domains` table already exists in the schema. Leave this task's checkboxes UNCHECKED
-> and skip straight to Task 13. The spec below stays as the morning playbook.
+> Implemented the FULL production path instead of the lite version: Cloudflare for SaaS custom
+> hostname `docs.kaushikrb.com` → fallback origin `fallback.hyugorix.com` (AAAA 100:: proxied) →
+> zone-wide `*/*` worker route with Host-based dispatch (`src/domains/host.ts`) + passthrough
+> for unrecognized hosts, plus a redesigned public KB landing (collection card grid, excerpts)
+> and KB-only SPA mode on customer hostnames. Live and verified end-to-end in prod. The
+> settings-UI/DoH-verify spec below was superseded; the demo mapping row is seeded via SQL.
+> See decision.md "Custom domains: real Cloudflare-for-SaaS wiring".
+>
+> (Original overnight note: deferred by user decision; spec below was the morning playbook.)
 
 **Files:** `backend/src/domains/domains.api.ts`, `src/domains/verify.ts`; `frontend/src/settings/DomainsPage.tsx`; Host-header middleware finalized (Task 9 hook).
 

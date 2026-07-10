@@ -8,6 +8,7 @@ import InviteAccept from "./pages/InviteAccept";
 import CreateWorkspace from "./pages/CreateWorkspace";
 import InboxPage from "./inbox/InboxPage";
 import KbAdminPage from "./kb/KbAdminPage";
+import AnalyticsPage from "./analytics/AnalyticsPage";
 import SettingsPage from "./settings/SettingsPage";
 import WidgetApp from "./widget/WidgetApp";
 import KbHome from "./kb-public/KbHome";
@@ -68,6 +69,7 @@ function AppRoutes() {
       >
         <Route index element={<InboxPage />} />
         <Route path="kb" element={<KbAdminPage />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>

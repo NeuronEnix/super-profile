@@ -2581,7 +2581,7 @@ type Analytics = {
 };
 ```
 
-- [ ] **Step 1: Failing tests** — `backend/test/analytics-compute.test.ts`:
+- [x] **Step 1: Failing tests** — `backend/test/analytics-compute.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -2638,7 +2638,7 @@ describe("computeAnalytics", () => {
 });
 ```
 
-- [ ] **Step 2: Implement `backend/src/analytics/compute.ts`:**
+- [x] **Step 2: Implement `backend/src/analytics/compute.ts`:**
 
 ```ts
 export type AnalyticsConv = {
@@ -2741,7 +2741,7 @@ export function computeAnalytics(
 
 Run `pnpm test analytics` — PASS.
 
-- [ ] **Step 3: API** — `backend/src/analytics/analytics.api.ts`:
+- [x] **Step 3: API** — `backend/src/analytics/analytics.api.ts`:
 
 ```ts
 import { Hono } from "hono";
@@ -2804,7 +2804,7 @@ analyticsApi.get("/analytics", validate(Query, "query"), async (c) => {
 
 Mount in index.ts: `app.route("/api/v1/ws/:wsId", analyticsApi);`
 
-- [ ] **Step 4: Page** — `frontend/src/analytics/AnalyticsPage.tsx` (CSS-only bars, no chart lib):
+- [x] **Step 4: Page** — `frontend/src/analytics/AnalyticsPage.tsx` (CSS-only bars, no chart lib):
 
 ```tsx
 import { useEffect, useState } from "react";
@@ -2959,9 +2959,9 @@ export default function AnalyticsPage() {
 }
 ```
 
-- [ ] **Step 5: Route + nav.** In `frontend/src/App.tsx`: `import AnalyticsPage from "./analytics/AnalyticsPage";` + `<Route path="analytics" element={<AnalyticsPage />} />` inside the `/w/:wsId` route. In `frontend/src/components/Shell.tsx` add `{ to: "analytics", label: "Analytics" }` to `navItems` between Knowledge Base and Settings.
+- [x] **Step 5: Route + nav.** In `frontend/src/App.tsx`: `import AnalyticsPage from "./analytics/AnalyticsPage";` + `<Route path="analytics" element={<AnalyticsPage />} />` inside the `/w/:wsId` route. In `frontend/src/components/Shell.tsx` add `{ to: "analytics", label: "Analytics" }` to `navItems` between Knowledge Base and Settings.
 
-- [ ] **Step 6: Green + deploy + verify.** Backend tests green; build; deploy; open `https://sp.hyugorix.com/w/<ban-gera wsId>/analytics` (read-only — safe on ban-gera) and confirm real numbers render. **Commit + push**: `git add -A && git commit -m "feat(analytics): dashboard — response times, volume, busiest hours, agent + AI deflection stats" && git push origin main`
+- [x] **Step 6: Green + deploy + verify.** Backend tests green; build; deploy; open `https://sp.hyugorix.com/w/<ban-gera wsId>/analytics` (read-only — safe on ban-gera) and confirm real numbers render. **Commit + push**: `git add -A && git commit -m "feat(analytics): dashboard — response times, volume, busiest hours, agent + AI deflection stats" && git push origin main`
 
 ---
 

@@ -575,7 +575,7 @@ export function nextBatch(frontier: string[], visitedCount: number, importedCoun
 - `parseGists(response: string, count: number): Map<number, string>`
 - `composeDigest(articles: DigestArticle[], gists: Map<number, string>, urlBase: string, charCap: number): string`
 
-- [ ] **Step 1: Failing tests** — `backend/test/kb-sync-digest.test.ts`:
+- [x] **Step 1: Failing tests** — `backend/test/kb-sync-digest.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -619,7 +619,7 @@ describe("composeDigest", () => {
 });
 ```
 
-- [ ] **Step 2: Run to fail**, then implement `backend/src/kb-sync/digest.ts`:
+- [x] **Step 2: Run to fail**, then implement `backend/src/kb-sync/digest.ts`:
 
 ```ts
 export type DigestArticle = { title: string; slug: string; collection: string | null; excerpt: string };
@@ -665,7 +665,7 @@ export function composeDigest(
 }
 ```
 
-- [ ] **Step 3: Green**: `cd backend && pnpm test` all pass. **Commit**: `git add -A && git commit -m "feat(kb-sync): digest gist prompt/parse/compose (deterministic urls)"`
+- [x] **Step 3: Green**: `cd backend && pnpm test` all pass. **Commit**: `git add -A && git commit -m "feat(kb-sync): digest gist prompt/parse/compose (deterministic urls)"`
 
 ---
 

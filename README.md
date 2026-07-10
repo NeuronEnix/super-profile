@@ -10,6 +10,7 @@ and Workers AI. Built in ~48 hours as a Staff Engineer take-home assignment.
 Jump to: [Try it now](#try-it-now-evaluator-quick-start) · [Architecture](#architecture) ·
 [Schema](#database-schema) · [Real-time design](#real-time-design-durable-objects) ·
 [Email engineering](#email-engineering) · [AI design](#ai-design) · [Security](#security) ·
+[What shipped overnight (v2)](#what-shipped-overnight-v2) ·
 [Trade-offs](#trade-offs--deliberate-scope) · [Built vs. skipped](#built-vs-skipped) ·
 [Local setup](#local-setup) · [Deployment](#deployment) · [Known limitations](#known-limitations)
 
@@ -334,9 +335,57 @@ flipping the flag in local dev only).
 
 ---
 
+## What shipped overnight (v2)
+
+A second overnight batch, on top of everything above, added five features in priority order —
+full design rationale in [`docs/superpowers/specs/2026-07-11-overnight-features-v2-design.md`](docs/superpowers/specs/2026-07-11-overnight-features-v2-design.md),
+task-by-task implementation log in [`docs/superpowers/plans/2026-07-11-overnight-features-v2.md`](docs/superpowers/plans/2026-07-11-overnight-features-v2.md).
+
+1. **KB sync from an existing docs site** — paste a docs URL, hit Sync, and a `KbSyncRunner`
+   Durable Object crawls it, converts pages to markdown, and populates the KB automatically (see
+   [Docs import](#docs-import) below).
+2. **AI docs digest** — after every successful sync, an AI-written one-line-per-article map of
+   the whole KB is stored on the workspace and injected into both AI features (the autonomous
+   handler and agent Suggest-reply), so replies can cite articles FTS search alone might miss.
+3. **Canned responses** — saved replies, shared across the team; type `/` in the inbox composer
+   to filter and insert one (↑/↓/Enter/Esc), or click the ⚡ button. Managed in Settings.
+4. **SLA tracking** — optional per-workspace first-response and resolution targets (minutes);
+   conversation rows and the header show live countdown/breach chips, computed on read (no cron).
+   An AI-handled reply counts as a first response — see [decision #25](decision.md).
+5. **Contact timeline** — the widget iframe now boots eagerly on page load (not on first open),
+   reporting page views into `contact_events`; the inbox's contact panel becomes a "super
+   profile": last seen, recent pages browsed, and every past conversation with that contact.
+6. **Analytics dashboard** — a new `/analytics` tab: conversation volume (14/30-day bars),
+   busiest hours, median first-response/resolution time, per-agent load, channel split, and an
+   AI deflection rate (conversations the AI resolved with zero human replies) — a metric most
+   competing submissions won't have.
+
+### Docs import
+
+The Docs import panel lives on the Knowledge Base admin page, right below the custom-domain
+panel. Paste a docs site URL (`docs.acme.com` or `https://docs.acme.com/help`) and click Sync.
+
+- **Caps:** at most **10 articles imported** and **15 pages fetched** per sync, whichever hits
+  first ends the crawl — same-origin only, restricted to the given path prefix.
+- **Cooldown:** one sync per workspace per `KB_SYNC_COOLDOWN_MIN` minutes (env var, default
+  **1440** = 24h; `.dev.vars` sets it to `1` locally so re-syncs aren't blocked during dev). The
+  cooldown anchors to the last *successful* sync only.
+- **Bot-protection / zero-import behavior:** a site that blocks automated fetches (403/429,
+  challenge headers, a "Security Checkpoint"-style page) or otherwise yields **zero** imported
+  articles ends the run **FAILED** with an honest message ("This site blocks automated access…"
+  or "couldn't import any articles") — and a FAILED run never arms the cooldown, so a mistyped or
+  blocked URL can be corrected and retried immediately. Only a run that actually imports ≥1
+  article is reported DONE (see [decision #24](decision.md)).
+- **Re-sync semantics:** upserts by source URL — a page synced before gets its title/body
+  refreshed (slug stays stable so public links and any digest citing it never break); a new page
+  is inserted as published. **Nothing is ever deleted**, and articles you wrote by hand in the KB
+  editor (no `source_url`) are never touched by a sync, ever (see [decision #27](decision.md)).
+
+---
+
 ## Trade-offs & deliberate scope
 
-Full reasoning for every non-obvious decision is in [`decision.md`](decision.md) (18 entries); the
+Full reasoning for every non-obvious decision is in [`decision.md`](decision.md) (30 entries); the
 highlights:
 
 - **No Cloudflare Queues.** D1 writes are already serialized per-workspace through the DO
@@ -384,10 +433,12 @@ priority order, when time ran out — nothing here is an oversight.
 | 5 | Knowledge base — markdown, categories, public site, search, widget auto-suggest | ✅ Built — FTS5-backed |
 | 6 | AI conversation summaries | ✅ Built — rolling, cached, graceful fallback |
 | 7 | Custom domains | 🟡 Documented approach + schema only; connect UI + real DNS verification is the [morning playbook](decision.md) (Task 12), deliberately deferred by explicit user decision before this session's sleep |
-| — | Canned responses (stretch) | ❌ Skipped — [decision #18](decision.md), time better spent hardening the 7 required features |
-| — | AI draft replies (stretch) | ❌ Skipped — same reasoning |
+| — | Canned responses (stretch) | ✅ Built in the v2 overnight batch — see [What shipped overnight (v2)](#what-shipped-overnight-v2); originally skipped ([decision #18](decision.md)), revisited the following night |
+| — | AI draft replies (stretch) | ✅ Built — "Delegate to AI" autonomous KB-grounded replies with human escalation |
+| — | SLA tracking (stretch) | ✅ Built in the v2 overnight batch — first-response/resolution targets, on-read breach chips |
+| — | Analytics dashboard (stretch) | ✅ Built in the v2 overnight batch — response times, volume, busiest hours, agent + AI deflection stats |
 | — | R2 attachment upload UI | ❌ Skipped — table + R2 binding exist, no UI; not required by the assignment |
-| — | Webhooks / public REST API keys, SLA tracking, analytics dashboard | ❌ Skipped — explicitly out of scope per the original design spec |
+| — | Webhooks / public REST API keys | ❌ Skipped — explicitly out of scope per the original design spec |
 | — | Rate limiting *enforcement* | 🟡 Fully built + verified, ships flag-off (evaluator's call to flip it) |
 
 ---

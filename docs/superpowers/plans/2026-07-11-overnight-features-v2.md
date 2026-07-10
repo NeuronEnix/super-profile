@@ -2970,15 +2970,15 @@ export default function AnalyticsPage() {
 **Files:**
 - Modify: `MORNING.md`, `README.md`, `decision.md`, this plan file (final checkboxes)
 
-- [ ] **Step 1: Full test suites.** `cd backend && pnpm test` (all green) and full local e2e: build frontend, wrangler dev, `cd e2e && BASE_URL=http://localhost:8787 DEBUG_AUTH_SECRET=<v> npx playwright test` — ALL specs pass (old + canned + timeline).
+- [x] **Step 1: Full test suites.** `cd backend && pnpm test` (all green) and full local e2e: build frontend, wrangler dev, `cd e2e && BASE_URL=http://localhost:8787 DEBUG_AUTH_SECRET=<v> npx playwright test` — ALL specs pass (old + canned + timeline).
 
-- [ ] **Step 2: Prod smoke.** `cd e2e && BASE_URL=https://sp.hyugorix.com DEBUG_AUTH_SECRET=<prod value from .env> npx playwright test` — pass (these specs create throwaway workspaces; they never touch ban-gera). Manually confirm `https://docs.kaushikrb.com` still serves 200.
+- [x] **Step 2: Prod smoke.** `cd e2e && BASE_URL=https://sp.hyugorix.com DEBUG_AUTH_SECRET=<prod value from .env> npx playwright test` — pass (these specs create throwaway workspaces; they never touch ban-gera). Manually confirm `https://docs.kaushikrb.com` still serves 200.
 
-- [ ] **Step 3: decision.md.** Append entries (Context/Options/Chosen/Why) for: AI replies count as first response; eager widget iframe (and the pre-open badge fix it brings); re-sync never deletes; bot-challenge fail-fast thresholds; analytics agent attribution = current assignee approximation; digest regenerates only on sync.
+- [x] **Step 3: decision.md.** Append entries (Context/Options/Chosen/Why) for: AI replies count as first response; eager widget iframe (and the pre-open badge fix it brings); re-sync never deletes; bot-challenge fail-fast thresholds; analytics agent attribution = current assignee approximation; digest regenerates only on sync.
 
-- [ ] **Step 4: README.** Add the five features to the feature list with one-line descriptions, and a "Docs import" subsection: what it does, the 10-article/15-page caps, the cooldown env var, the bot-protection behavior, and that re-syncs upsert by source URL.
+- [x] **Step 4: README.** Add the five features to the feature list with one-line descriptions, and a "Docs import" subsection: what it does, the 10-article/15-page caps, the cooldown env var, the bot-protection behavior, and that re-syncs upsert by source URL.
 
-- [ ] **Step 5: MORNING.md.** Write the wake-up report: what shipped (per feature: what/where/commit), the **60-second verify path** for each, and the **live demo script**:
+- [x] **Step 5: MORNING.md.** Write the wake-up report: what shipped (per feature: what/where/commit), the **60-second verify path** for each, and the **live demo script**:
   1. KB page (ban-gera) → Docs import panel → paste `https://superprofile.bio/blog` → Sync → honest bot-protection failure (no cooldown armed).
   2. Same panel → paste `https://hono.dev/docs` → Sync → watch counters tick → articles live on docs.kaushikrb.com.
   3. Widget demo page → browse Pricing/Features → open ticket → inbox shows the browsing trail + last seen.
@@ -2987,4 +2987,4 @@ export default function AnalyticsPage() {
   6. Analytics tab → live numbers incl. AI deflection.
   Note anything requiring the user's hands, and that ban-gera's first real sync consumes its daily cooldown (change `KB_SYNC_COOLDOWN_MIN` and redeploy to reset for rehearsals).
 
-- [ ] **Step 6: Final commit + push.** `git add -A && git commit -m "docs: morning report, README features, decision log for overnight v2" && git push origin main`
+- [x] **Step 6: Final commit + push.** `git add -A && git commit -m "docs: morning report, README features, decision log for overnight v2" && git push origin main`

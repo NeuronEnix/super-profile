@@ -1,165 +1,201 @@
 # MORNING.md — for Kaushik
 
-Things that need your hands or your judgment. The overnight run appends here; items marked
-`[seeded]` were known before you slept.
+Overnight batch v2 (2026-07-11 night → 07-11 morning). This file is fully replaced tonight — it
+covers only the five new features. Everything from the previous session (custom domains, DMARC,
+inbound email transport, rate-limit flag, etc.) is unchanged and still exactly as documented in
+`README.md` / `decision.md` entries #1–22; nothing in this batch touched any of that.
 
-## Morning review (Fable) — read this first
+## TL;DR
 
-A full review of the overnight build is done: every backend module read, the deployed app
-exercised live in Chrome, 12 real issues found, fixed, and re-verified against prod (all tests
-green, everything committed/pushed). Details in decision.md #22. The three things you asked about:
+All five features from `docs/superpowers/specs/2026-07-11-overnight-features-v2-design.md` are
+**built, deployed, and verified**:
 
-- **"Lots of Resend emails" — explained and stopped.** Not a product bug: every overnight test
-  run sent a *real* magic-link email to its fake `...@example.com` test address (the debug-auth
-  path echoed the token but still sent the email). Dozens of sends burned the ~100/day quota —
-  that's what the 4:27/4:33 AM quota notices were. Fixed: `X-Debug-Auth` requests now skip the
-  send entirely, so test runs cost **zero** emails (confirmed: a full prod e2e run adds nothing
-  to the Resend log). Real user flows are unchanged. The stuck "Delivery Delayed" sends to
-  example.com will expire/bounce on their own; no action needed, quota resets daily.
-- **Your mailboxes:** Gmail delivery was proven overnight (magic link + reply, SPF/DKIM/DMARC
-  pass, landed in Inbox). I deliberately did NOT send test emails to kaushik@/support@hyugorix.com
-  to conserve quota — if you want the Outlook check, one magic-link login from the prod page to
-  kaushik@hyugorix.com does it (1 email).
-- [ ] **DECISION — real inbound email transport (you asked me to "just add the MX records";
-      I couldn't, here's why + your options).** I investigated all the way to the paywall/risk
-      and made **zero changes** to anything (no DNS, no Resend config, no purchase):
-      - **Resend Receiving (the clean path, on your own `inbox.hyugorix.com`)** requires the
-        **Resend Pro plan — $20/mo**. Your free plan allows only 1 domain, already used by
-        `notifications.hyugorix.com` for sending. Adding `inbox.hyugorix.com` as a second
-        (receiving) domain is gated behind Pro. I won't spend your money without your say-so. If
-        you upgrade, I can do the rest (~30 min): add the receiving domain, give you the exact MX
-        record to paste into Cloudflare DNS, and add Resend webhook-signature verification to our
-        `/api/v1/email/inbound` (Resend webhooks can't send our `X-Inbound-Secret` header, so the
-        endpoint needs that small change — noted so it's not a surprise).
-      - **Cloudflare Email Routing (free)** would deliver straight to our Worker's existing
-        `email()` handler (cleanest — no webhook, no secret). BUT the overnight investigation
-        (decision #13) found its setup targets the **apex MX = your real Microsoft 365 mail**, the
-        one thing we agreed never to touch. I did not attempt it. Separately, the browser
-        automation now blocks me from opening `dash.cloudflare.com` at all, so I couldn't even
-        re-verify whether a subdomain-only MX is possible — that exploration would have to be you,
-        at the Cloudflare dashboard, and only if you can confirm it won't disturb the apex.
-      - **Do nothing (recommended for the assignment):** the simulator is a fully honest,
-        fully-tested transport stub. The entire inbound *engineering* — parsing, threading,
-        dedup, real outbound replies with correct headers — is built and proven; only the
-        physical "how mail reaches the Worker" leg is stubbed, which the assignment explicitly
-        permits. For a hiring submission this is defensible as-is; I wouldn't spend $20/mo or risk
-        your real email for a demo. **My recommendation: leave it, unless you specifically want
-        live inbound — then pick Resend Pro and tell me to proceed.**
+1. KB sync from an existing docs site (+ AI docs digest)
+2. Canned responses
+3. SLA tracking
+4. Contact timeline
+5. Analytics dashboard
 
-Also fixed in the review, evaluator-visible (full list in decision.md #22): a login race that
-made the first API call after every magic-link sign-in transiently fail (this was the real cause
-of the "flaky tests" the overnight notes blamed on timing); invite links being permanently burned
-if clicked while signed into the wrong account; a 500 when a widget visitor and an email sender
-share the same address; a WebSocket hole letting one visitor fake typing/read-receipts on another
-visitor's conversation; conversations showing "unread" right after you reply; the widget
-promising "share your name or email" with no input fields; missed-message catch-up after
-reconnects; inbound email dedup for webhook retries.
+Latest prod deploy: Worker version `c9639658-1c30-45c4-b4a9-d3d7a8da2ddb`. Evidence tonight:
+**145/145 backend unit tests green**, **6/6 Playwright specs green locally** (`wrangler dev`) and
+**6/6 green again against prod** (`https://sp.hyugorix.com`), `https://docs.kaushikrb.com` →
+**200**. `ban-gera` (your real demo workspace) was **not touched** — verified directly against
+D1 (`kb_sync_sources` has no row for it at all): its sync cooldown is **UNARMED**. That matters
+because the demo script below runs on `ban-gera` and needs the cooldown to be free the first
+time you run it — see the demo script and the note at the bottom about what happens *after* you
+run it once.
 
-## Status snapshot
-<!-- The overnight run keeps this section current: what's deployed, URLs, what's green/red -->
-- Prod URL: https://sp.hyugorix.com
-- Demo page (widget): https://sp.hyugorix.com/demo.html
-- Inbound email address pattern: `<workspace-slug>@inbox.hyugorix.com`
-- **FINAL STATUS: Tasks 0–10 and 13 complete, all 7 required assignment features built,
-  deployed, and verified against prod with real evidence (see the acceptance matrix in
-  `docs/superpowers/plans/2026-07-10-super-profile-implementation.md` Task 13, all boxes ticked).
-  Task 11 (stretch: canned responses + AI drafts) deliberately skipped per its own
-  pre-authorized fallback clause (decision #18). Task 12 (custom domains) deliberately deferred
-  to this morning per your explicit decision before sleeping — README documents the full
-  approach, schema is ready, morning playbook is Task 12 in the plan.**
-- README.md is written at the repo root — read it first, it's the evaluator's front door.
-- `git log` has one commit per task tonight; `decision.md` has 21 numbered entries covering every
-  autonomous call made, including two real bugs found and fixed during Task 13's own
-  verification pass (a D1 batch counting bug, #19; a missing widget-key UI, #20) and one honest
-  limitation (screenshots not embedded as files, #21).
+Full autonomous-decision trail: `decision.md` entries **#23–#30** (new tonight) — two are
+orchestrator review fixes over the executor's first pass (#24 overrides #23: a zero-import sync
+now fails honestly instead of quietly reporting "DONE · 0 articles"). Plan file:
+`docs/superpowers/plans/2026-07-11-overnight-features-v2.md` — all 11 tasks, 84 steps ticked.
 
-## Actions for you
+---
 
-- [ ] `[seeded]` **Custom domains feature (deferred by you):** we build it together in the
-      morning — the ready playbook is Task 12 in
-      `docs/superpowers/plans/2026-07-10-super-profile-implementation.md` (connect UI + real
-      DoH TXT verification + Host-header KB resolution; SSL stays a documented
-      Cloudflare-for-SaaS stub). ~1.5h. The README already explains the approach, so the
-      submission is defensible even if we run out of time.
-- [ ] `[seeded]` **Optional — pretty support address:** in M365 admin, set shared mailbox
-      `support@hyugorix.com` to forward to `<your-workspace-slug>@inbox.hyugorix.com`.
-      Microsoft blocks external forwarding by default: Security (Defender) → Policies →
-      Anti-spam → Outbound policy → set *Automatic forwarding* to "On – Forwarding is enabled",
-      then Exchange admin → shared mailbox → Manage mail flow settings → forwarding.
-      If skipped, hand evaluators the `...@inbox.hyugorix.com` address directly — fully fine.
-- [ ] `[seeded]` **Decide rate limiting for submission:** currently
-      `FLAG.RATE_LIMIT_ENABLED = false` (your call for testing). To enforce before submitting,
-      flip the constant in `backend/src/common/const.ts` and redeploy — limits are generous
-      (won't trip evaluators).
-- [x] **Custom domain — DONE.** App is live at **https://sp.hyugorix.com** (display name stays
-      "SuperProfile"). One Worker serves app + API same-origin: `/api/v1/*` → backend, everything
-      else → the SPA. It's a Workers Custom Domain provisioned by `wrangler deploy` (auto DNS +
-      TLS), a single-level subdomain, apex untouched. `APP_URL` points at `sp.hyugorix.com` so
-      magic links use it. The old `*.workers.dev` URL is now disabled (wrangler's default once a
-      custom domain exists) — if you want it back as a fallback, say so and I'll add
-      `"workers_dev": true` to `wrangler.jsonc`. README/e2e/docs all use `sp.hyugorix.com`.
-- [ ] **DMARC — exact change for you to make (removes your Gmail, points reports at support@).**
-      A *strong* DMARC record already exists on `hyugorix.com` (`p=reject`, strict alignment — it's
-      why app mail lands in Inbox, not spam; the overnight "add p=none" note was wrong). Its report
-      address currently points at your personal Gmail. To move reports to support@hyugorix.com and
-      drop the Gmail, edit the single TXT record at `_dmarc.hyugorix.com` in Cloudflare DNS to
-      exactly this value (I can't write DNS — the browser tool blocks the Cloudflare dashboard):
-      `v=DMARC1; p=reject; rua=mailto:support@hyugorix.com; ruf=mailto:support@hyugorix.com; sp=reject; adkim=s; aspf=s; pct=100`
-      Steps: Cloudflare → hyugorix.com → DNS → Records → find the TXT record named `_dmarc` → Edit →
-      replace the content with the line above → Save. Leave `p=reject`/`sp=reject` as-is (they work).
-      Delivery-neutral — it only changes where daily reports land; your mail keeps flowing.
-- [ ] `[seeded]` **Deliverability sanity check (optional):** magic link to a *fresh* address, or
-      the Outlook `kaushik@hyugorix.com` check (1 email). Gmail already confirmed landing in Inbox.
-- [ ] `[seeded]` **Optional:** Linear project "super profile" — Linear MCP needs re-auth
-      (`/mcp` → linear-personal → authenticate) if you still want issues mirrored there.
+## Feature 1: KB sync from an existing docs site (+ AI docs digest)
 
-## Known limitations / accepted risks (also going into README)
+**What:** paste a customer's public docs URL into a new "Docs import" panel on the KB admin
+page → a `KbSyncRunner` Durable Object (one per workspace) crawls it, converts pages to
+markdown, and populates `kb_collections`/`kb_articles`. After every *successful* sync, one AI
+call over all published articles produces a compact "docs digest" (title + real URL + one-line
+gist per article, grouped by collection) stored on the workspace and injected into both AI
+features (the autonomous handler and agent Suggest-reply), so AI replies can cite an imported
+article even when full-text search alone would miss it.
 
-- Magic-link-only login means evaluator email deliverability is the single point of failure for
-  first impressions — mitigation above.
-- Anonymous widget identity is bearer-style (knowing a userId = that visitor's chats on that
-  site). Same as Intercom without Identity Verification; HMAC identity verification is the
-  documented production fix.
+**Where:**
+- Schema: `backend/migrations/0005_kb_sync.sql` (`kb_sync_sources` table, `kb_articles
+  .source_url`, `workspaces.kb_digest`/`kb_digest_at`) — commit `c423d8b`
+- Crawler (pure functions, unit-tested, zero I/O): `backend/src/kb-sync/crawl.ts` — commit
+  `179443c` (`backend/test/kb-sync-crawl.test.ts`)
+- Digest (pure functions): `backend/src/kb-sync/digest.ts` — commit `6549731`
+  (`backend/test/kb-sync-digest.test.ts`)
+- The DO + import upsert + API + AI wiring: `backend/src/kb-sync/runner.ts`,
+  `backend/src/kb-sync/import.service.ts`, `backend/src/kb-sync/sync.api.ts`,
+  `backend/src/domains/host.ts` (`publicKbBase`), `backend/src/ai/handler.ts` +
+  `backend/src/ai/draft.ts` (digest param) — commit `2e9e31b`
+- UI panel: `frontend/src/kb/KbSyncPanel.tsx`, plus the live prod verification script
+  `e2e/scripts/kb-sync-live-check.mjs` — commit `6deeea0`
+- Zero-import honesty fix (orchestrator review): `finalOutcome()` in `crawl.ts` — see
+  decision #24; landed inside the same feature line, verified live post-deploy.
 
-<!-- Overnight entries append below -->
+**60-second verify:** log in to any *throwaway* workspace (never ban-gera for a test run) →
+Knowledge Base tab → "📥 Docs import" panel below the domain panel → paste `hono.dev/docs` →
+Sync → watch "Found N · Imported N" tick up every 2s → within ~15-20s status flips to
+emerald "N articles · synced just now" → open the public KB page for that workspace and see an
+imported article rendered.
 
-- [ ] **Real inbound email transport (Task 6):** the email channel is fully built and verified
-      (inbound ingestion, threading via plus-address + In-Reply-To/References, real outbound
-      Resend send confirmed in your Gmail with correct headers) but the *transport* — how a real
-      email physically reaches the Worker — is still the simulator endpoint
-      (`POST /api/v1/email/inbound` + `X-Inbound-Secret`), not live. Two options, both need your
-      go-ahead because they touch DNS on your real domain:
-      1. **Cloudflare Email Routing** (dash.cloudflare.com → hyugorix.com → Email Routing) — you
-         already have 5 routing rules configured (support@/info@/help@/company@/kaushik@ → your
-         Gmail) but the feature is Disabled/DNS-not-configured. Enabling it adds/changes MX
-         records **at the zone apex** (`hyugorix.com`) — there's no dashboard option to scope it
-         to only `inbox.hyugorix.com`. This would sit alongside (and could conflict with) your
-         real Microsoft 365 MX. Do this only if you're comfortable reviewing exactly what
-         Cloudflare proposes to change before confirming.
-      2. **Resend Inbound** — checked the Resend dashboard; no Receiving/Inbound tab exists in
-         your account (feature not enabled/available there). Would need Resend to expose it, or
-         a different inbound-email provider that supports subdomain-scoped MX (the safe pattern —
-         doesn't touch the apex).
-      If you don't want to touch DNS before submitting, the simulator is a fully honest,
-      fully-tested demo path — decision.md #13 has the details evaluators/you can read.
+## Feature 2: Canned responses
 
-- [ ] **Check Resend's daily send quota before the evaluation window.** While verifying real
-      email delivery tonight (magic link + a real inbound→reply→threaded-reply round trip, all
-      confirmed working via the inbox), I noticed two Resend notification emails in your inbox at
-      4:27 AM and 4:33 AM: "You have reached 80%/100% of your daily quota for the account."
-      Every send I made *after* that (4:44 AM magic link, 4:49 AM reply) still
-      went through fine, so whatever the quota is didn't actually block anything tonight — but
-      it's worth a 2-minute check of the Resend dashboard's usage/plan page before evaluators
-      start testing, in case a free-tier daily cap could bite at the wrong moment during their
-      session. If it's close to plan limits, either upgrading or just being aware of the reset
-      time would avoid a confusing "magic link never arrived" report.
-- [x] **AI summaries (Task 10) — done.** Rolling WANTS/TRIED/STATUS summary via Workers AI,
-      cached, 10s-timeout fallback, verified with a real generated summary against prod (see
-      decision #17). Flag-gated rate limiting (magic-link + widget) also built and verified
-      (temporarily enabled locally to confirm enforcement actually works, then reverted).
-- [x] **Knowledge base (Task 9) — done.** Markdown editor, FTS5 search, public site, widget
-      auto-suggest, all verified against prod (see decision #16).
-- [x] **Widget install UX gap found and fixed (Task 13).** There was no way to find your own
-      widget key anywhere in the dashboard UI — caught while walking the evaluator quick-start
-      flow myself. Settings now has an "Install the widget" section with the script tag, a copy
-      button, and quick links to the demo page and public KB (decision #20).
+**What:** saved, team-shared reply templates. Settings gets a management section (add/edit,
+two-click-confirm delete). In the inbox composer (not the widget — visitors never see these),
+typing `/` opens a dropdown filtered by title/tag, ↑/↓ + Enter inserts the body, Esc closes; a
+`⚡` button toggles the same dropdown for discoverability.
+
+**Where:** `backend/src/canned/canned.api.ts` (`GET/POST/PATCH/DELETE
+/api/v1/ws/:wsId/canned`), `frontend/src/settings/CannedSection.tsx`,
+`frontend/src/lib/canned.ts` (pure `matchCanned` filter, unit-tested in
+`backend/test/canned-match.test.ts`), `Composer` gains the optional `canned` prop — commit
+`3626ab0`. E2E: `e2e/tests/canned.spec.ts`.
+
+**60-second verify:** Settings → "Canned responses" → add one (title + body) → open any
+conversation in the inbox → type `/` in the composer → see it in the dropdown → Enter → it's in
+the textarea → Send.
+
+## Feature 3: SLA tracking
+
+**What:** optional per-workspace first-response and resolution targets (minutes; blank = SLA
+off, admin-only setting). Conversation list rows show a chip only when it's actionable (amber
+countdown while pending, red once breached); the conversation header shows both metrics
+precisely. Computed on read — no cron, no background job. An AI-handled reply counts as a first
+response, same as a human agent's (decision #25) — Delegate-to-AI tickets aren't unfairly scored
+as permanently breaching SLA.
+
+**Where:** `backend/migrations/0006_sla.sql` (`conversations.first_agent_reply_at`/
+`resolved_at`, `workspaces.sla_first_response_min`/`sla_resolution_min`, with a backfill for
+existing rows), the single write choke-point in `backend/src/realtime/hub.ts`'s message-insert
+UPDATE, status-PATCH in `backend/src/conversations/conversations.api.ts`, workspace PATCH in
+`backend/src/workspaces/workspaces.api.ts`, pure `computeSla` in `frontend/src/lib/sla.ts`
+(mirrored/tested per plan note in `backend/test/sla.test.ts`), UI in
+`frontend/src/inbox/ConversationList.tsx` + `ConversationView.tsx` — commit `83714ad`.
+
+**60-second verify:** Settings (admin) → set both SLA targets to 1–2 minutes → open a fresh
+conversation → header shows "First response due in Nm" → wait past target (or reply/don't
+reply) → chip flips to breached-red on the list and in the header.
+
+## Feature 4: Contact timeline
+
+**What:** the widget iframe now boots **eagerly** on page load (not lazily on first open) so it
+can report page views from the very first visit — this also incidentally fixes the pre-open
+unread badge, which previously couldn't receive `sp:unread` until the widget had been opened
+once (decision #26). Page navigations (including SPA hash routing, debounced so one navigation
+= one report with the settled title) land in a new `contact_events` table. The inbox's contact
+panel becomes a "super profile": name/email, **Last seen** (relative time), a recent-activity
+feed of pages browsed, and every past conversation with that contact (clickable).
+
+**Where:** `backend/migrations/0007_contact_events.sql`, `backend/src/widget/widget.api.ts`
+(`POST /api/v1/widget/events`), `frontend/public/widget.js` (eager iframe + debounced
+`postPage()`), `frontend/src/widget/WidgetApp.tsx` (`sp:page` bridge),
+`frontend/public/demo.html` (fake 3-page nav for a convincing demo trail) — commit `fa3be02`.
+Read API + `ContactPanel` UI: `GET /ws/:wsId/contacts/:contactId/timeline`,
+`frontend/src/inbox/ContactPanel.tsx` — commit `ba78a3d`. E2E: `e2e/tests/timeline.spec.ts`.
+
+**60-second verify:** open `sp.hyugorix.com/demo.html?key=<widget key>` in a second tab, click
+through the 3 fake nav links without opening the chat → in the dashboard, start/open a
+conversation from that visitor → the contact panel shows "Last seen" + the pages just browsed.
+
+## Feature 5: Analytics dashboard
+
+**What:** a new "Analytics" tab (`/w/:wsId/analytics`) — stat cards (totals, resolution rate,
+median first-response/resolution minutes), a 14/30/7-day volume bar chart, a 24-hour
+busiest-hours row, a per-agent table (replies/assigned/resolved), channel split, and an AI
+deflection rate (conversations the AI resolved entirely alone, zero human agent messages) — CSS-
+only bars, no chart dependency. Two definitional calls worth knowing: per-agent stats attribute
+by the conversation's **current** assignee, not a full reassignment history (decision #28,
+approximation — fine for a small team, flagged as a trade-off not an oversight); the resolution
+median only counts conversations a human/AI actually engaged with before closing (has both
+`resolved_at` and `first_agent_reply_at`) — AI-alone resolutions are reported separately via
+deflection rate so one metric can't dilute the other (decision #29).
+
+**Where:** `backend/src/analytics/analytics.api.ts` (`GET /ws/:wsId/analytics?days=`),
+`backend/src/analytics/compute.ts` (pure `computeAnalytics`, unit-tested in
+`backend/test/analytics-compute.test.ts` — medians on empty/odd/even sets, zero-denominator
+rates), `frontend/src/analytics/AnalyticsPage.tsx`, nav item in `frontend/src/components
+/Shell.tsx` — commit `053c17e`.
+
+**60-second verify:** Analytics tab → range toggle 7/14/30 days → stat cards + bars render with
+real numbers from prod's existing demo data; AI deflection rate should be non-zero given the
+Delegate-to-AI conversations already in ban-gera.
+
+---
+
+## Live demo script (run this on ban-gera, in this exact order)
+
+Order matters — step 1 must run *before* step 2 on the same workspace, because a failed sync
+never arms the cooldown but a successful one does; running the bot-protection failure first
+costs nothing and sets up the "honest failure → real success" narrative for evaluators.
+
+1. **KB page (ban-gera) → Docs import panel → paste `https://superprofile.bio/blog` → Sync.**
+   Watch it end **FAILED** with the bot-protection message ("This site blocks automated access
+   (bot protection). Try a different docs URL.") — no cooldown armed, button stays enabled.
+2. **Same panel → paste `https://hono.dev/docs` → Sync.** Watch the counters tick up live
+   ("Found N · Imported N"), status flips to emerald "N articles · synced just now" — articles
+   are now live on `docs.kaushikrb.com` (ban-gera's custom domain).
+3. **Widget demo page → browse Pricing/Features (or the demo's fake nav links) → open a
+   ticket.** In the dashboard inbox, the contact panel shows the browsing trail + "Last seen."
+4. **Composer: type `/`** → a canned response inserts. **Settings:** set SLA targets to 1–2
+   minutes → chips on the conversation list/header count down and flip red once breached.
+5. **Delegate to AI** on a ticket related to something in the imported Hono docs → the AI's
+   reply cites an imported article by its `docs.kaushikrb.com` URL — the digest generated in
+   step 2 is what makes this possible even if full-text search alone wouldn't have surfaced it.
+6. **Analytics tab** → live numbers, including the AI deflection rate.
+
+---
+
+## Notes
+
+- **After step 2 of the demo (the hono.dev sync), ban-gera's KB-sync cooldown arms for 24h**
+  (`KB_SYNC_COOLDOWN_MIN` default 1440). If you want to **rehearse the demo more than once**
+  before the real evaluation, temporarily lower `KB_SYNC_COOLDOWN_MIN` in `backend/wrangler.jsonc`
+  (`vars`) to something small (e.g. `1`) and redeploy (`cd backend && npx wrangler deploy`), run
+  through it, then set it back to `1440` and redeploy again before the real session — otherwise
+  an evaluator re-running the sync mid-demo will just see "Next sync available in ~24h" instead
+  of a live crawl. The bot-protection step (superprofile.bio) never arms the cooldown, so you can
+  re-run *that* half as many times as you like without redeploying anything.
+- **Throwaway `sync-check-*` workspaces exist in prod** (created by tonight's live-verification
+  script and the Playwright prod-smoke run against real workspaces it creates itself) — these are
+  expected clutter, entirely ignorable, and never touch ban-gera.
+- **Resolution-median definition** (worth knowing before reading the Analytics tab yourself):
+  it only counts conversations that were actually engaged with by a human or the AI before
+  closing — an AI-alone resolution doesn't count toward it (that's what the deflection rate is
+  for). See decision #29 if you want the full reasoning.
+- **Nothing here requires your hands** beyond the optional cooldown-rehearsal step above — all
+  five features are already live on `https://sp.hyugorix.com` and `https://docs.kaushikrb.com`.
+  Everything from the *previous* night's MORNING.md (custom domains connect-UI playbook, DMARC
+  TXT record change, real inbound email transport decision, Resend quota check) is untouched and
+  still pending exactly as previously documented — see `decision.md` #1–22 and the prior
+  `docs/superpowers/plans/2026-07-10-super-profile-implementation.md` Task 12 for those.
+- **Minor pre-existing README staleness spotted and fixed:** the "Built vs. skipped" table's
+  "AI draft replies" row still said "Skipped" even though "Delegate to AI" (autonomous
+  KB-grounded replies) was built in the session *before* this one (commit `1fd3aa8`) — corrected
+  in tonight's README pass since it directly contradicted the new feature list. Flagging in case
+  there's other drift from that same gap worth a closer read when you're up.

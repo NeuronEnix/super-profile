@@ -2551,7 +2551,7 @@ NOTE: before writing the Send-button locator, check `frontend/src/widget/NewTick
 
 - [x] **Step 7: Full local run.** backend tests green; frontend build; wrangler dev; `npx playwright test timeline canned` PASS; full `npx playwright test` PASS (older specs must survive the eager iframe). Kill dev server.
 
-- [ ] **Step 8: Deploy + prod smoke.** Apply migration 0007 `--remote`, deploy, then browse the prod demo page with a real workspace key (orchestrator, in browser), click around, open the inbox, see the trail. **Commit + push**: `git add -A && git commit -m "feat(timeline): contact super-profile panel — activity trail, last seen, history" && git push origin main`
+- [x] **Step 8: Deploy + prod smoke.** Apply migration 0007 `--remote`, deploy, then browse the prod demo page with a real workspace key (orchestrator, in browser), click around, open the inbox, see the trail. **Commit + push**: `git add -A && git commit -m "feat(timeline): contact super-profile panel — activity trail, last seen, history" && git push origin main`
 
 ---
 

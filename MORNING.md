@@ -20,14 +20,31 @@ green, everything committed/pushed). Details in decision.md #22. The three thing
   pass, landed in Inbox). I deliberately did NOT send test emails to kaushik@/support@hyugorix.com
   to conserve quota — if you want the Outlook check, one magic-link login from the prod page to
   kaushik@hyugorix.com does it (1 email).
-- [ ] **NEW OPTION — real inbound email without touching the apex:** the overnight notes said
-      Resend has no inbound feature on your account — **that's wrong, it exists** (Resend
-      dashboard → Emails → Receiving → "set up a custom domain"). That's the safe pattern
-      MORNING.md hoped for: MX record on `inbox.hyugorix.com` only (single-level subdomain,
-      allowed by your DNS ground rules; apex/M365 untouched) + a Resend webhook pointed at our
-      existing `POST /api/v1/email/inbound` (the payload normalizer for Resend's shape is already
-      in the code). ~15 min together, and feature 3's transport becomes fully live. Your call —
-      it's a DNS change on your domain, so I didn't touch it.
+- [ ] **DECISION — real inbound email transport (you asked me to "just add the MX records";
+      I couldn't, here's why + your options).** I investigated all the way to the paywall/risk
+      and made **zero changes** to anything (no DNS, no Resend config, no purchase):
+      - **Resend Receiving (the clean path, on your own `inbox.hyugorix.com`)** requires the
+        **Resend Pro plan — $20/mo**. Your free plan allows only 1 domain, already used by
+        `notifications.hyugorix.com` for sending. Adding `inbox.hyugorix.com` as a second
+        (receiving) domain is gated behind Pro. I won't spend your money without your say-so. If
+        you upgrade, I can do the rest (~30 min): add the receiving domain, give you the exact MX
+        record to paste into Cloudflare DNS, and add Resend webhook-signature verification to our
+        `/api/v1/email/inbound` (Resend webhooks can't send our `X-Inbound-Secret` header, so the
+        endpoint needs that small change — noted so it's not a surprise).
+      - **Cloudflare Email Routing (free)** would deliver straight to our Worker's existing
+        `email()` handler (cleanest — no webhook, no secret). BUT the overnight investigation
+        (decision #13) found its setup targets the **apex MX = your real Microsoft 365 mail**, the
+        one thing we agreed never to touch. I did not attempt it. Separately, the browser
+        automation now blocks me from opening `dash.cloudflare.com` at all, so I couldn't even
+        re-verify whether a subdomain-only MX is possible — that exploration would have to be you,
+        at the Cloudflare dashboard, and only if you can confirm it won't disturb the apex.
+      - **Do nothing (recommended for the assignment):** the simulator is a fully honest,
+        fully-tested transport stub. The entire inbound *engineering* — parsing, threading,
+        dedup, real outbound replies with correct headers — is built and proven; only the
+        physical "how mail reaches the Worker" leg is stubbed, which the assignment explicitly
+        permits. For a hiring submission this is defensible as-is; I wouldn't spend $20/mo or risk
+        your real email for a demo. **My recommendation: leave it, unless you specifically want
+        live inbound — then pick Resend Pro and tell me to proceed.**
 
 Also fixed in the review, evaluator-visible (full list in decision.md #22): a login race that
 made the first API call after every magic-link sign-in transiently fail (this was the real cause

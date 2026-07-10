@@ -1186,7 +1186,7 @@ describe("digest injection", () => {
 
 **Interfaces (consumed):** `GET/POST /api/v1/ws/:wsId/kb/sync` from Task 4.
 
-- [ ] **Step 1: Types.** In `frontend/src/lib/types.ts` after `KbDomain` add:
+- [x] **Step 1: Types.** In `frontend/src/lib/types.ts` after `KbDomain` add:
 
 ```ts
 export type KbSyncSource = {
@@ -1203,7 +1203,7 @@ export type KbSyncSource = {
 };
 ```
 
-- [ ] **Step 2: `frontend/src/kb/KbSyncPanel.tsx`** (mirrors DomainPanel's visual language):
+- [x] **Step 2: `frontend/src/kb/KbSyncPanel.tsx`** (mirrors DomainPanel's visual language):
 
 ```tsx
 import { useCallback, useEffect, useState } from "react";
@@ -1358,16 +1358,16 @@ export function KbSyncPanel({ wsId }: { wsId: string }) {
 }
 ```
 
-- [ ] **Step 3: Mount it.** In `frontend/src/kb/KbAdminPage.tsx` import `{ KbSyncPanel }` and change `{wsId && <DomainPanel wsId={wsId} />}` to:
+- [x] **Step 3: Mount it.** In `frontend/src/kb/KbAdminPage.tsx` import `{ KbSyncPanel }` and change `{wsId && <DomainPanel wsId={wsId} />}` to:
 
 ```tsx
 {wsId && <DomainPanel wsId={wsId} />}
 {wsId && <KbSyncPanel wsId={wsId} />}
 ```
 
-- [ ] **Step 4: Build + deploy.** From repo root: `pnpm --dir frontend build`, then `cd backend && CI=true npx wrangler d1 migrations apply super-profile --remote && npx wrangler deploy`. Expected: migration 0005 applied remotely; deploy prints a version id.
+- [x] **Step 4: Build + deploy.** From repo root: `pnpm --dir frontend build`, then `cd backend && CI=true npx wrangler d1 migrations apply super-profile --remote && npx wrangler deploy`. Expected: migration 0005 applied remotely; deploy prints a version id.
 
-- [ ] **Step 5: Live check script** — `e2e/scripts/kb-sync-live-check.mjs` (modeled on ws-check.mjs; run BY HAND against prod, never from a test suite):
+- [x] **Step 5: Live check script** — `e2e/scripts/kb-sync-live-check.mjs` (modeled on ws-check.mjs; run BY HAND against prod, never from a test suite):
 
 ```js
 // One-shot prod verification for KB sync. Creates a THROWAWAY workspace, verifies the
@@ -1442,7 +1442,7 @@ console.log("\nALL CHECKS PASSED — workspace", workspace.slug, "(throwaway, ca
 
 NOTE: check the public KB endpoint shape first (`backend/src/kb/public.api.ts` `GET /:wsSlug`) and adjust the final assertion's field names to what it actually returns.
 
-- [ ] **Step 6: Run it against prod.** `cd e2e && BASE_URL=https://sp.hyugorix.com DEBUG_AUTH_SECRET=$(grep DEBUG_AUTH_SECRET ../backend/.dev.vars | cut -d= -f2) node scripts/kb-sync-live-check.mjs`
+- [x] **Step 6: Run it against prod.** `cd e2e && BASE_URL=https://sp.hyugorix.com DEBUG_AUTH_SECRET=$(grep DEBUG_AUTH_SECRET ../backend/.dev.vars | cut -d= -f2) node scripts/kb-sync-live-check.mjs`
 Expected output ends with `ALL CHECKS PASSED`. If the blocked-path check fails because Vercel changed behavior, capture the actual status/error into decision.md and continue — the happy path is the release gate.
 
 - [ ] **Step 7: Visual check.** Orchestrator (browser): open the throwaway workspace's KB page on prod, confirm the panel shows Synced + article count, cooldown text visible, Sync button disabled; digest exists: `cd backend && npx wrangler d1 execute super-profile --remote --command "SELECT length(kb_digest) FROM workspaces WHERE id='<wsId>'" --json`.

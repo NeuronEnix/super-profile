@@ -4,7 +4,7 @@ import { now, uuidv7 } from "../common/id";
 import { runWithTimeout } from "../ai/summary";
 import { publicKbBase } from "../domains/host";
 import {
-  cooldownRemainingMs, deriveCollectionName, extractLinks, extractMainContent,
+  cooldownRemainingMs, deriveCollectionName, extractLinks, extractMainContent, finalOutcome,
   htmlToMarkdown, humanizeMs, inScope, isBlockedResponse, nextBatch, type DocsSource,
 } from "./crawl";
 import { buildGistPrompt, composeDigest, parseGists, type DigestArticle } from "./digest";
@@ -60,6 +60,7 @@ type Job = {
   imported: number;
   failed: number;
   blockedStreak: number;
+  blockedTotal: number;
   alarmRetries: number;
   sitemapTried: boolean;
 };
@@ -116,7 +117,7 @@ export class KbSyncRunner {
     const job: Job = {
       workspaceId, requestedBy: userId, source,
       frontier: [source.startUrl], visited: [],
-      imported: 0, failed: 0, blockedStreak: 0, alarmRetries: 0, sitemapTried: false,
+      imported: 0, failed: 0, blockedStreak: 0, blockedTotal: 0, alarmRetries: 0, sitemapTried: false,
     };
     await this.ctx.storage.put("job", job);
     await this.env.DB.prepare(
@@ -181,6 +182,7 @@ export class KbSyncRunner {
         if (isBlockedResponse(res.status, (n) => res.headers.get(n), bodySnippet)) {
           job.failed += 1;
           job.blockedStreak += 1;
+          job.blockedTotal += 1;
           if (job.blockedStreak >= KB_SYNC.BLOCKED_STREAK_LIMIT) {
             await this.finalize(job, KB_SYNC.STATUS.FAILED, KB_SYNC.BLOCKED_MSG);
             return;
@@ -223,7 +225,8 @@ export class KbSyncRunner {
 
     await this.writeProgress(job);
     if (nextBatch(job.frontier, job.visited.length, job.imported) === 0) {
-      await this.finalize(job, KB_SYNC.STATUS.DONE, null);
+      const outcome = finalOutcome(job.imported, job.blockedTotal);
+      await this.finalize(job, outcome.status, outcome.error);
       return;
     }
     await this.ctx.storage.put("job", job);

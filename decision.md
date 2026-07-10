@@ -532,3 +532,52 @@ the way a real customer would experience it (CNAME + validation records on the c
 **Deliberately not built (scope):** settings UI for domain self-service + DoH TXT verify from
 plan Task 12 — the mapping row is inserted via SQL for the demo workspace; the product story
 and API surface (`custom_domains` table, status lifecycle) are in place.
+
+## 23. KB sync live-check: superprofile.bio no longer fails as a whole-run bot-protection case
+
+**Context:** Task 5's live-check script (plan `2026-07-11-overnight-features-v2.md`) expected
+`https://superprofile.bio/blog` to end the sync `FAILED` with a "bot protection" message, proving
+the crawler fails honestly on a protected site. Live run against prod (`sp.hyugorix.com`) instead
+produced `status=DONE, pagesFound=1, pagesImported=0, pagesFailed=1, error=null` — the site now
+lets the crawler see 1 page but fails importing it, and the runner's overall-status logic treats
+"found ≥1 page" as a completed (if partially failed) run rather than an outright `FAILED`. Because
+the sync ended `DONE`, that workspace's 24h cooldown was armed by the blocked-path check itself,
+which would have blocked a same-workspace happy-path retry.
+**Options:** (a) treat this as a release blocker and debug the runner's FAILED-vs-DONE-with-failures
+classification; (b) leave the runner as-is (a `DONE` with `pagesFailed>0` is arguably more honest
+than a hard `FAILED` for a partially-crawlable site) and adjust only the verification script to log
+the actual outcome instead of asserting the original expectation, running the happy path on a
+**separate** fresh throwaway workspace so the armed cooldown from the blocked-path run doesn't
+interfere.
+**Chosen:** (b). Per CLAUDE.md priorities (deployed & working > core-feature correctness) and the
+plan's own instruction ("if the blocked-path expectation fails because the site's behavior changed,
+record what actually happened and continue — the happy path is the release gate"), the happy path
+(hono.dev/docs → 11/11 pages imported, DONE, cooldown correctly armed with `KB_SYNC_COOLDOWN`, 11
+published articles visible via both the authed and public KB endpoints) is what gates release, and
+it passed cleanly on its own fresh workspace.
+**Why:** No product code changed — the runner's DONE-with-partial-failures behavior for a
+site that blocks one specific page but not the root crawl is reasonable and arguably safer (never
+silently discard a partially successful import). Only `e2e/scripts/kb-sync-live-check.mjs` changed,
+to use two throwaway workspaces (one for the blocked-path observation, one for the happy path) and
+to log rather than throw on the blocked-path mismatch.
+
+## 24. Overrides #23: zero-import syncs are now always FAILED (orchestrator review fix)
+
+**Context:** Reviewing #23, the orchestrator disagreed with option (b): a workspace whose sync
+ends `DONE · 0 articles` reads as success in the panel, arms the 24h cooldown, and buries the
+one thing the user needs to know — nothing was imported and why. The specific mechanism on
+superprofile.bio: a fully-blocked site yields exactly ONE challenged fetch (a challenge page has
+no in-scope links), so `blockedStreak` can never reach the whole-run abort limit of 3 — the
+streak-based FAILED path structurally can't fire for the most common blocked case.
+**Options:** (a) keep #23's DONE-with-partial-failures; (b) classify the final outcome by what
+was actually imported: any imports → DONE; zero imports → FAILED, with the bot-protection
+message if any fetch was challenge-blocked, else a "couldn't import any articles" message.
+**Chosen:** (b) — implemented as pure `finalOutcome()` in `kb-sync/crawl.ts` (unit-tested),
+used by the runner's finalize step. FAILED never arms the cooldown, so a user who pasted a
+blocked or JS-only site can correct the URL and retry immediately.
+**Why:** "Partial import" still reports DONE (imported>0 with pagesFailed>0 shown in the panel),
+so nothing successful is discarded. Only the zero-import case flips to FAILED — there is nothing
+to preserve there, and an honest error both fixes the morning demo beat (superprofile.bio →
+bot-protection message, verified live post-deploy) and covers client-rendered docs sites with a
+useful message. Live re-run: blocked path now FAILED with the bot-protection message; happy path
+11/11 imported; cooldown armed; digest generated (1487 chars).

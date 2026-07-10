@@ -79,7 +79,10 @@ function pickDensestSection(root: HTMLElement): HTMLElement | null {
 
 export function extractMainContent(html: string): { title: string; contentHtml: string } {
   const root = parse(html);
-  const rawTitle = root.querySelector("h1")?.text.trim() || root.querySelector("title")?.text.trim() || "";
+  const rawTitle = (root.querySelector("h1")?.text.trim() || root.querySelector("title")?.text.trim() || "")
+    // zero-width chars — VitePress and friends embed U+200B anchors inside headings
+    .replace(/[​‌‍﻿]/g, "")
+    .trim();
   const title = (rawTitle.split(/\s+[|·—–]\s+/)[0] || rawTitle).trim().slice(0, 200) || "Untitled";
   const container =
     root.querySelector("main") ??
@@ -92,6 +95,9 @@ export function extractMainContent(html: string): { title: string; contentHtml: 
   for (const el of container.querySelectorAll("[class]")) {
     if (STRIP_CLASS_RE.test(el.getAttribute("class") ?? "")) el.remove();
   }
+  // The page title becomes the article title — drop the leading h1 so the body markdown
+  // (and the excerpt derived from it) doesn't open by repeating it.
+  container.querySelector("h1")?.remove();
   return { title, contentHtml: container.innerHTML };
 }
 
@@ -120,7 +126,8 @@ function renderTable(el: HTMLElement): string {
 }
 
 function renderNode(node: Node, ctx: Ctx): string {
-  if (node.nodeType === NodeType.TEXT_NODE) return node.rawText.replace(/\s+/g, " ");
+  // .text (not .rawText) so HTML entities like &quot; and &amp; are decoded in the markdown
+  if (node.nodeType === NodeType.TEXT_NODE) return node.text.replace(/\s+/g, " ");
   if (node.nodeType !== NodeType.ELEMENT_NODE) return "";
   const el = node as HTMLElement;
   const tag = (el.tagName ?? "").toUpperCase();
@@ -248,6 +255,20 @@ export function humanizeMs(ms: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
   return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+/**
+ * A finished crawl that imported nothing is a failure, never a silent "DONE · 0 articles" —
+ * a fully-blocked site yields a single challenged fetch (no links), so the blocked-streak
+ * abort can't fire and this final classification is what surfaces the honest error instead.
+ * FAILED also means the cooldown never arms, so the user can retry immediately.
+ */
+export function finalOutcome(
+  imported: number,
+  blockedTotal: number,
+): { status: "DONE"; error: null } | { status: "FAILED"; error: string } {
+  if (imported > 0) return { status: "DONE", error: null };
+  return { status: "FAILED", error: blockedTotal > 0 ? KB_SYNC.BLOCKED_MSG : KB_SYNC.NO_CONTENT_MSG };
 }
 
 /** How many frontier URLs to process in this alarm firing (0 = crawl is finished). */

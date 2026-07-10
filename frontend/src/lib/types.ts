@@ -113,4 +113,17 @@ export type KbDomain = {
   records: KbDomainRecord[];
 };
 
+export type KbSyncSource = {
+  id: string;
+  url: string;
+  status: "RUNNING" | "DONE" | "FAILED";
+  pagesFound: number;
+  pagesImported: number;
+  pagesFailed: number;
+  error: string | null;
+  lastSyncedAt: number | null;
+  startedAt: number | null;
+  createdAt: number;
+};
+
 export type Summary = { summary: string; generatedAt: number; cached: boolean };

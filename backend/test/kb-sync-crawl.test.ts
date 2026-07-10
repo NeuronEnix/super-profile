@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  cooldownRemainingMs, deriveCollectionName, extractLinks, extractMainContent,
+  cooldownRemainingMs, deriveCollectionName, extractLinks, extractMainContent, finalOutcome,
   htmlToMarkdown, humanizeMs, inScope, isBlockedResponse, nextBatch, normalizeDocsUrl,
 } from "../src/kb-sync/crawl";
 
@@ -61,6 +61,16 @@ describe("extractMainContent", () => {
     expect(title).toBe("Setup guide");
     expect(contentHtml).toContain("Real content here.");
     for (const junk of ["NAVJUNK", "SIDEJUNK", "FOOTJUNK"]) expect(contentHtml).not.toContain(junk);
+    // the h1 became the title — the body must not open by repeating it
+    expect(contentHtml).not.toContain("<h1>");
+  });
+  it("decodes HTML entities in the markdown output", () => {
+    const md = htmlToMarkdown('<p>We call it &quot;Handler&quot; &amp; more</p>');
+    expect(md).toBe('We call it "Handler" & more');
+  });
+  it("strips zero-width characters from titles (VitePress heading anchors)", () => {
+    const { title } = extractMainContent("<main><h1>Cloudflare Workers + Vite ​</h1><p>x</p></main>");
+    expect(title).toBe("Cloudflare Workers + Vite");
   });
   it("falls back to the densest body section when no main/article", () => {
     const html = `<body><div id="tiny">hi</div><div id="big"><p>${"word ".repeat(50)}</p></div></body>`;
@@ -117,6 +127,23 @@ describe("isBlockedResponse", () => {
     expect(isBlockedResponse(200, h({}), "<title>Vercel Security Checkpoint</title>")).toBe(true);
     expect(isBlockedResponse(200, h({}), "<title>Acme Docs</title>")).toBe(false);
     expect(isBlockedResponse(404, h({}), "")).toBe(false);
+  });
+});
+
+describe("finalOutcome", () => {
+  it("any imports → DONE", () => {
+    expect(finalOutcome(1, 5)).toEqual({ status: "DONE", error: null });
+    expect(finalOutcome(10, 0)).toEqual({ status: "DONE", error: null });
+  });
+  it("zero imports with any blocked fetch → FAILED with the bot-protection message", () => {
+    const r = finalOutcome(0, 1);
+    expect(r.status).toBe("FAILED");
+    expect(r.error).toMatch(/bot protection/i);
+  });
+  it("zero imports, nothing blocked → FAILED with the no-content message", () => {
+    const r = finalOutcome(0, 0);
+    expect(r.status).toBe("FAILED");
+    expect(r.error).toMatch(/couldn't import any articles/i);
   });
 });
 

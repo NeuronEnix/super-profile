@@ -86,6 +86,11 @@ emailApi.post("/inbound", async (c) => {
   const parsed = body ? normalizeInboundPayload(body) : null;
   if (!parsed || !parsed.to || !parsed.from) throw ctxErr.email.invalidInbound();
 
-  await ingestInboundEmail(c.env, parsed);
+  const result = await ingestInboundEmail(c.env, parsed);
+  if (result === null) {
+    // A silent 200 here hides typos in the workspace slug from whoever drives the simulator.
+    throw ctxErr.email.invalidInbound({ msg: "No workspace matches that inbound address" });
+  }
+  if ("duplicate" in result) return ok(c, { duplicate: true });
   return ok(c);
 });

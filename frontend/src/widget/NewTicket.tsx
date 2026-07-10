@@ -13,9 +13,11 @@ export function NewTicket({
   widgetColor: string;
   wsSlug: string;
   onBack: () => void;
-  onCreate: (body: string) => Promise<void>;
+  onCreate: (body: string, profile?: { name?: string; email?: string }) => Promise<void>;
 }) {
   const [message, setMessage] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [suggestions, setSuggestions] = useState<KbSearchHit[]>([]);
   const needsProfile = !contact?.name && !contact?.email;
@@ -43,7 +45,10 @@ export function NewTicket({
     if (!message.trim() || sending) return;
     setSending(true);
     try {
-      await onCreate(message.trim());
+      const profile = needsProfile
+        ? { name: name.trim() || undefined, email: email.trim() || undefined }
+        : undefined;
+      await onCreate(message.trim(), profile);
     } finally {
       setSending(false);
     }
@@ -60,9 +65,28 @@ export function NewTicket({
 
       <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
         {needsProfile && (
-          <p className="text-xs text-slate-500">
-            Optional: share your name or email so we can follow up if you leave.
-          </p>
+          <div className="space-y-2">
+            <p className="text-xs text-slate-500">
+              Optional: share your name or email so we can follow up if you leave.
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name"
+                aria-label="Your name"
+                className="w-1/2 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                aria-label="Your email"
+                className="w-1/2 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
         )}
         <textarea
           autoFocus

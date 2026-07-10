@@ -3,6 +3,41 @@
 Things that need your hands or your judgment. The overnight run appends here; items marked
 `[seeded]` were known before you slept.
 
+## Morning review (Fable) — read this first
+
+A full review of the overnight build is done: every backend module read, the deployed app
+exercised live in Chrome, 12 real issues found, fixed, and re-verified against prod (all tests
+green, everything committed/pushed). Details in decision.md #22. The three things you asked about:
+
+- **"Lots of Resend emails" — explained and stopped.** Not a product bug: every overnight test
+  run sent a *real* magic-link email to its fake `...@example.com` test address (the debug-auth
+  path echoed the token but still sent the email). Dozens of sends burned the ~100/day quota —
+  that's what the 4:27/4:33 AM quota notices were. Fixed: `X-Debug-Auth` requests now skip the
+  send entirely, so test runs cost **zero** emails (confirmed: a full prod e2e run adds nothing
+  to the Resend log). Real user flows are unchanged. The stuck "Delivery Delayed" sends to
+  example.com will expire/bounce on their own; no action needed, quota resets daily.
+- **Your mailboxes:** Gmail delivery was proven overnight (magic link + reply, SPF/DKIM/DMARC
+  pass, landed in Inbox). I deliberately did NOT send test emails to kaushik@/support@hyugorix.com
+  to conserve quota — if you want the Outlook check, one magic-link login from the prod page to
+  kaushik@hyugorix.com does it (1 email).
+- [ ] **NEW OPTION — real inbound email without touching the apex:** the overnight notes said
+      Resend has no inbound feature on your account — **that's wrong, it exists** (Resend
+      dashboard → Emails → Receiving → "set up a custom domain"). That's the safe pattern
+      MORNING.md hoped for: MX record on `inbox.hyugorix.com` only (single-level subdomain,
+      allowed by your DNS ground rules; apex/M365 untouched) + a Resend webhook pointed at our
+      existing `POST /api/v1/email/inbound` (the payload normalizer for Resend's shape is already
+      in the code). ~15 min together, and feature 3's transport becomes fully live. Your call —
+      it's a DNS change on your domain, so I didn't touch it.
+
+Also fixed in the review, evaluator-visible (full list in decision.md #22): a login race that
+made the first API call after every magic-link sign-in transiently fail (this was the real cause
+of the "flaky tests" the overnight notes blamed on timing); invite links being permanently burned
+if clicked while signed into the wrong account; a 500 when a widget visitor and an email sender
+share the same address; a WebSocket hole letting one visitor fake typing/read-receipts on another
+visitor's conversation; conversations showing "unread" right after you reply; the widget
+promising "share your name or email" with no input fields; missed-message catch-up after
+reconnects; inbound email dedup for webhook retries.
+
 ## Status snapshot
 <!-- The overnight run keeps this section current: what's deployed, URLs, what's green/red -->
 - Prod URL: https://super-profile.kaushikrb909.workers.dev

@@ -50,6 +50,14 @@ authApi.post(
       .bind(uuidv7(), email, tokenHash, ts + AUTH.MAGIC_LINK_TTL_SEC * 1000, ts)
       .run();
 
+    // Authenticated test callers get the raw token echoed back and NO email is sent — every
+    // automated run otherwise burns real Resend quota on fake addresses (and bounces hurt the
+    // sending domain's reputation). Without the header, behavior is byte-identical to prod.
+    const debugHeader = c.req.header("X-Debug-Auth");
+    if (debugHeader && debugHeader === c.env.DEBUG_AUTH_SECRET) {
+      return ok(c, { debugToken: raw });
+    }
+
     const link = `${config.APP_URL}/auth/verify?token=${raw}`;
     await getSender(c.env).send({
       from: `SuperProfile <no-reply@${config.SEND_DOMAIN}>`,
@@ -58,11 +66,6 @@ authApi.post(
       text: `Sign in to SuperProfile:\n\n${link}\n\nThis link expires in 10 minutes.`,
       html: `<p>Sign in to SuperProfile:</p><p><a href="${link}">${link}</a></p><p>This link expires in 10 minutes.</p>`,
     });
-
-    const debugHeader = c.req.header("X-Debug-Auth");
-    if (debugHeader && debugHeader === c.env.DEBUG_AUTH_SECRET) {
-      return ok(c, { debugToken: raw });
-    }
     return ok(c);
   },
 );
@@ -112,13 +115,15 @@ authApi.post("/invite-accept", authMiddleware, validate(InviteAcceptBody, "json"
   )
     .bind(tokenHash)
     .first<{ workspaceId: string; email: string; role: string }>();
-  await consumeToken(c.env.DB, tokenHash, ts, "invites", "accepted_at");
   if (!invite) throw ctxErr.invite.notFound();
 
+  // The email check must run BEFORE the one-time consume — otherwise a wrong-account click
+  // burns the token and the rightful invitee can never accept.
   const user = await c.env.DB.prepare("SELECT email FROM users WHERE id=?1").bind(userId).first<{ email: string | null }>();
   if (!user?.email || user.email !== invite.email) {
     throw ctxErr.auth.notAuthorized({ msg: "This invite is for a different email address" });
   }
+  await consumeToken(c.env.DB, tokenHash, ts, "invites", "accepted_at");
 
   await c.env.DB.prepare(
     "INSERT INTO workspace_members (workspace_id, user_id, role, created_at) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (workspace_id, user_id) DO UPDATE SET role=excluded.role",

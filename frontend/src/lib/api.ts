@@ -47,6 +47,7 @@ type ApiOptions = {
 };
 
 async function request<T>(path: string, opts: ApiOptions, isRetry: boolean): Promise<T> {
+  const tokenAtStart = accessToken;
   const headers: Record<string, string> = { "Content-Type": "application/json", ...opts.headers };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
@@ -61,9 +62,15 @@ async function request<T>(path: string, opts: ApiOptions, isRetry: boolean): Pro
   if (envelope.code === "OK") return envelope.data as T;
 
   if (!isRetry && (envelope.code === "EXPIRED_ACCESS_TOKEN" || envelope.code === "INVALID_ACCESS_TOKEN")) {
+    // A newer token may have been installed while this request (or a doomed pre-login refresh)
+    // was in flight — the magic-link verify finishing during the app-boot auth dance does
+    // exactly this. Retry with the new token, and never let the stale failure clobber it.
+    if (accessToken && accessToken !== tokenAtStart) {
+      return request<T>(path, opts, true);
+    }
     const refreshed = await refreshAccessToken();
     if (refreshed) return request<T>(path, opts, true);
-    setAccessToken(null);
+    if (accessToken === tokenAtStart) setAccessToken(null);
     if (opts.redirectOnAuthFailure !== false && typeof window !== "undefined") {
       window.location.assign("/login");
     }

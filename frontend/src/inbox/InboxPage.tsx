@@ -83,9 +83,22 @@ export default function InboxPage() {
     [],
   );
 
+  const [reconnectNonce, setReconnectNonce] = useState(0);
+  const firstOpenRef = useRef(true);
+  // On the socket's initial open the list load below is enough; on RE-connects the open
+  // conversation must also catch up on messages it missed (via ?afterId= — see ConversationView).
+  const handleSocketOpen = useCallback(() => {
+    loadConversations();
+    if (firstOpenRef.current) {
+      firstOpenRef.current = false;
+      return;
+    }
+    setReconnectNonce((n) => n + 1);
+  }, [loadConversations]);
+
   const { send } = useReconnectingSocket(socketUrl, {
     onMessage: handleSocketMessage,
-    onOpen: loadConversations,
+    onOpen: handleSocketOpen,
   });
 
   const subscribe = useCallback((fn: (event: WsEvent) => void) => {
@@ -120,6 +133,7 @@ export default function InboxPage() {
           wsId={wsId}
           send={send}
           subscribe={subscribe}
+          reconnectNonce={reconnectNonce}
           members={members}
           currentUserId={user?.id}
           presenceOnline={presenceOnline}

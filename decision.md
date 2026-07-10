@@ -377,3 +377,68 @@ worth recording since they'd bite silently otherwise.
   priority order (deployed & working > core-feature correctness > security > stretch features >
   visual polish) — every functional and security item in Task 13 is otherwise complete and
   verified against prod.
+
+## 22. Morning review (Fable): 12 findings fixed, one flake root-caused as a real auth bug
+
+Full-codebase review of the overnight build (every backend module read line-by-line, key
+frontend paths, live Chrome verification against prod before and after fixes). Everything below
+was fixed, unit/e2e-verified locally, deployed, and re-verified against prod in one pass.
+
+- **Resend quota mystery solved (the user's "lots of emails" question).** `POST /auth/magic-link`
+  and `POST /ws/:wsId/invites` always sent a real Resend email even when the `X-Debug-Auth`
+  header was present — so every overnight e2e run and curl flow fired real emails at fake
+  `*-spec-*@example.com` addresses (confirmed in the Resend dashboard: dozens of "Sign in to
+  SuperProfile" sends stuck in "Delivery Delayed"). That burned the ~100/day quota (the 4:27/4:33
+  AM notices) and risks sender-reputation damage when they bounce out. Decision #4 *claimed*
+  debug-auth avoided sending; the code never did that on either endpoint. **Fix:** when the debug
+  header authenticates, echo the token and skip the send entirely. Verified: the full prod e2e
+  suite now produces zero Resend sends.
+- **The "test-harness flakiness" of #16/#17 was misdiagnosed — it was a real frontend auth race.**
+  The wrangler request log showed the failing pattern: `verify 200 → refresh 400 → workspaces 400
+  → refresh 200 → workspaces 200`. AuthContext's boot-time `/auth/me` kicks off a refresh before
+  the magic-link verify has set the cookie; when that doomed refresh resolves, `request()` called
+  `setAccessToken(null)` — wiping the fresh token verify had just installed, so the next API call
+  went out tokenless and 400'd (invisible to users thanks to auto-retry, but the Playwright
+  `waitForResponse` intercepted that 400 → the "flake"). **Fix:** `request()` now remembers the
+  token it started with, retries with any newer token instead of refreshing, and only clears the
+  token it actually started with. Suite ran 3× consecutively clean afterward, zero retries, and
+  the double-POST pattern is gone from the request log.
+- **Invite tokens were burned before the email-match check** (`consumeToken` ran first) — anyone
+  clicking an invite link while signed into the wrong account permanently invalidated the invite.
+  Reordered: validate invite + email match first, consume last. Verified: wrong-account accept →
+  NOT_AUTHORIZED, right account still accepts afterwards.
+- **UNIQUE(workspace_id,email) crash in `resolveContact`.** A widget visitor typing an email that
+  another contact already held (or a real email arriving from an address a widget visitor had
+  typed) made the INSERT/UPDATE throw → 500 on widget create / inbound ingest — exactly the flow
+  an evaluator hits testing widget + email with their own address. **Fix:** `claimableEmail()` —
+  a VERIFIED email (inbound mail) steals the address from an unverified holder per the identity
+  rules; an UNVERIFIED (widget-typed) one is dropped to null. Both directions curl-verified.
+- **WS contact-isolation gap in `WorkspaceHub`.** CONTACT sockets could send `TYPING`/`READ` for
+  any conversationId in the workspace (REST checks ownership; the WS path didn't) — fake typing
+  indicators and forged read-receipts/watermark writes against other visitors' conversations.
+  **Fix:** ownership check in `webSocketMessage`; new `e2e/scripts/ws-isolation-check.mjs` proves
+  foreign TYPING/READ are dropped and own READ still works (passes vs prod).
+- **Conversations showed unread right after your own reply** — nothing bumped the sender's read
+  watermark on send, so `agent_last_read_at < last_message_at` re-flagged the row (both sides had
+  this; the widget launcher badge also counted the visitor's own fresh ticket via a wrong
+  `agentLastReadAt === null` clause). **Fix:** the hub's conversation UPDATE advances the
+  *sender's* watermark with their message; widget badge clause corrected to contact-side only.
+- **Inbound email had no Message-ID dedup** — webhook transports retry, and a retry would have
+  created duplicate messages. Now idempotent (`{duplicate:true}` response); simulator also returns
+  a clear 400 ("No workspace matches that inbound address") instead of a silent 200 on drops.
+- **HTML injection in outgoing email HTML** — agent reply text and workspace names were
+  interpolated unescaped into Resend HTML bodies. Added `escapeHtml` (unit-tested) at both sites.
+- **README's reconnect catch-up claim wasn't implemented.** On WS reconnect the open conversation
+  never fetched missed messages (`?afterId=` existed server-side, unused). Both the dashboard
+  ConversationView and the widget TicketView now catch up on reconnect (and the widget re-boots
+  its list); InboxPage already reloaded the list.
+- **NewTicket promised "share your name or email" but rendered no inputs.** Added optional
+  name/email fields wired through `POST /widget/conversations` → `resolveContact` (unverified
+  path). Verified end-to-end in prod Chrome: fields render for fresh visitors, the dashboard
+  contact panel shows the typed identity.
+- **TicketView kept the previous ticket's state when switching** (no `key`, no initial snapshot) —
+  header showed the wrong subject and Seen couldn't render until a live event. Now remounts per
+  ticket with the list's snapshot as initial state.
+- **Resend "Receiving" exists on this account after all** — contradicting #13/MORNING.md ("no
+  Receiving tab"). Custom receiving domains are supported, which is the apex-safe subdomain-MX
+  transport MORNING.md wished for. Logged there for the user's go/no-go — DNS stays his call.

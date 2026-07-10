@@ -28,6 +28,7 @@ export function ConversationView({
   wsId,
   send,
   subscribe,
+  reconnectNonce,
   members,
   currentUserId,
   presenceOnline,
@@ -37,6 +38,7 @@ export function ConversationView({
   wsId: string;
   send: (data: unknown) => void;
   subscribe: (fn: (event: WsEvent) => void) => () => void;
+  reconnectNonce: number;
   members: Member[];
   currentUserId: string | undefined;
   presenceOnline: number;
@@ -50,6 +52,8 @@ export function ConversationView({
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conversationRef = useRef(conversation);
   conversationRef.current = conversation;
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
   /** The DO's write-path responses (POST .../messages) return a bare ConversationSnapshot —
    * no `contact` object. Merge onto whatever `contact` we already have rather than trusting
@@ -82,6 +86,30 @@ export function ConversationView({
       cancelled = true;
     };
   }, [wsId, conversationId, showError]);
+
+  // After a WS reconnect, refetch the conversation (status/assignee may have changed while
+  // offline) and fill the message gap via ?afterId= instead of trusting the socket alone.
+  useEffect(() => {
+    if (reconnectNonce === 0) return;
+    const last = messagesRef.current[messagesRef.current.length - 1];
+    (async () => {
+      try {
+        const [convData, msgData] = await Promise.all([
+          api<{ conversation: Conversation }>(`/api/v1/ws/${wsId}/conversations/${conversationId}`),
+          api<{ messages: Message[] }>(
+            `/api/v1/ws/${wsId}/conversations/${conversationId}/messages${last ? `?afterId=${last.id}` : ""}`,
+          ),
+        ]);
+        setConversation(convData.conversation);
+        setMessages((prev) => {
+          const seen = new Set(prev.map((m) => m.id));
+          return [...prev, ...msgData.messages.filter((m) => !seen.has(m.id))];
+        });
+      } catch {
+        // Reconnect catch-up is best-effort; the next event or a reload resyncs anyway.
+      }
+    })();
+  }, [reconnectNonce, wsId, conversationId]);
 
   useEffect(() => {
     return subscribe((event) => {

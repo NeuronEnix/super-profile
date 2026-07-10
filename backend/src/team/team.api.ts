@@ -7,6 +7,7 @@ import { authMiddleware, wsMiddleware, requireAdmin } from "../middleware/auth";
 import { ROLE, AUTH } from "../common/const";
 import { now, uuidv7 } from "../common/id";
 import { generateRawToken, hashToken } from "../auth/magic";
+import { escapeHtml } from "../common/html";
 import { getSender } from "../email/sender";
 import { getConfig } from "../config/env.config";
 import type { HonoEnv } from "../common/hono-env";
@@ -54,22 +55,28 @@ teamApi.post("/invites", requireAdmin, validate(InviteBody, "json"), async (c) =
     .bind(inviteId, workspaceId, email, role, tokenHash, ts + AUTH.INVITE_TTL_SEC * 1000, userId, ts)
     .run();
 
+  // Authenticated test callers get the token echoed and NO email sent (same rationale as
+  // /auth/magic-link — don't burn Resend quota / bounce mail at fake test addresses).
+  const debugHeader = c.req.header("X-Debug-Auth");
+  if (debugHeader && debugHeader === c.env.DEBUG_AUTH_SECRET) {
+    return ok(c, {
+      invite: { id: inviteId, email, role, expiresAt: ts + AUTH.INVITE_TTL_SEC * 1000 },
+      debugToken: raw,
+    });
+  }
+
   const workspace = await c.env.DB.prepare("SELECT name FROM workspaces WHERE id=?1").bind(workspaceId).first<{ name: string }>();
+  const wsName = workspace?.name ?? "a workspace";
   const link = `${config.APP_URL}/invite?token=${raw}`;
   await getSender(c.env).send({
     from: `SuperProfile <no-reply@${config.SEND_DOMAIN}>`,
     to: email,
-    subject: `You've been invited to join ${workspace?.name ?? "a workspace"} on SuperProfile`,
-    text: `You've been invited to join ${workspace?.name} on SuperProfile as ${role}.\n\n${link}\n\nThis invite expires in 7 days.`,
-    html: `<p>You've been invited to join <strong>${workspace?.name}</strong> on SuperProfile as ${role}.</p><p><a href="${link}">${link}</a></p><p>This invite expires in 7 days.</p>`,
+    subject: `You've been invited to join ${wsName} on SuperProfile`,
+    text: `You've been invited to join ${wsName} on SuperProfile as ${role}.\n\n${link}\n\nThis invite expires in 7 days.`,
+    html: `<p>You've been invited to join <strong>${escapeHtml(wsName)}</strong> on SuperProfile as ${role}.</p><p><a href="${link}">${link}</a></p><p>This invite expires in 7 days.</p>`,
   });
 
-  const debugHeader = c.req.header("X-Debug-Auth");
-  const debugToken = debugHeader && debugHeader === c.env.DEBUG_AUTH_SECRET ? raw : undefined;
-  return ok(c, {
-    invite: { id: inviteId, email, role, expiresAt: ts + AUTH.INVITE_TTL_SEC * 1000 },
-    ...(debugToken ? { debugToken } : {}),
-  });
+  return ok(c, { invite: { id: inviteId, email, role, expiresAt: ts + AUTH.INVITE_TTL_SEC * 1000 } });
 });
 
 teamApi.get("/invites", requireAdmin, async (c) => {

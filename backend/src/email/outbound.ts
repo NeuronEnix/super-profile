@@ -1,4 +1,5 @@
 import { getSender } from "./sender";
+import { escapeHtml } from "../common/html";
 import { sendMessage } from "../realtime/hub";
 import type { ConversationRow, MessageRow } from "../realtime/hub";
 import type { Env } from "../types";
@@ -48,7 +49,7 @@ export async function sendReply(env: Env, ctx: ReplyContext): Promise<void> {
       subject: `Re: ${ctx.conversation.subject ?? ""}`,
       replyTo: `${ctx.workspace.slug}+${ctx.conversation.id}@${env.INBOUND_DOMAIN}`,
       text: ctx.message.bodyText,
-      html: `<p>${ctx.message.bodyText.replace(/\n/g, "<br>")}</p>`,
+      html: `<p>${escapeHtml(ctx.message.bodyText).replace(/\n/g, "<br>")}</p>`,
       headers: {
         "Message-ID": ourMessageId,
         ...(inReplyTo ? { "In-Reply-To": inReplyTo } : {}),

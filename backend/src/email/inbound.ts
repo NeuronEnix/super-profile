@@ -59,7 +59,9 @@ export type InboundEmailInput = {
   html: string | null;
 };
 
-export async function ingestInboundEmail(env: Env, parsed: InboundEmailInput): Promise<MessageOut | null> {
+export type InboundResult = MessageOut | { duplicate: true } | null;
+
+export async function ingestInboundEmail(env: Env, parsed: InboundEmailInput): Promise<InboundResult> {
   const addr = parseInboundAddress(parsed.to, env.INBOUND_DOMAIN);
   if (!addr) {
     console.log(JSON.stringify({ inbound_drop: true, reason: "address_no_match", to: parsed.to }));
@@ -74,9 +76,26 @@ export async function ingestInboundEmail(env: Env, parsed: InboundEmailInput): P
     return null;
   }
 
+  // Webhook transports retry deliveries — the same Message-ID arriving twice must not create a
+  // duplicate message. Treated as success (idempotent), not an error.
+  if (parsed.messageId) {
+    const dupe = await env.DB.prepare(
+      "SELECT 1 FROM messages WHERE workspace_id=?1 AND email_message_id=?2 LIMIT 1",
+    )
+      .bind(workspace.id, parsed.messageId)
+      .first();
+    if (dupe) {
+      console.log(JSON.stringify({ inbound_drop: true, reason: "duplicate_message_id", messageId: parsed.messageId }));
+      return { duplicate: true };
+    }
+  }
+
   const ts = now();
   const user = await upsertUserByEmail(env.DB, parsed.from);
-  const contact = await resolveContact(env.DB, workspace.id, user.id, parsed.from, parsed.fromName, ts);
+  // Inbound mail proves the sender owns this address — verified identity per the identity rules.
+  const contact = await resolveContact(env.DB, workspace.id, user.id, parsed.from, parsed.fromName, ts, {
+    verifiedEmail: true,
+  });
 
   const conversationId = await resolveThreadConversationId(
     { conversationId: addr.conversationId, inReplyTo: parsed.inReplyTo, references: parsed.references },

@@ -25,6 +25,11 @@ const BootBody = z.object({
 
 const MessagesQuery = z.object({ afterId: z.string().optional(), limit: z.coerce.number().int().min(1).max(200).optional() });
 const PostMessageBody = z.object({ body: z.string().min(1).max(20_000) });
+const CreateConversationBody = z.object({
+  body: z.string().min(1).max(20_000),
+  name: z.string().min(1).max(120).optional(),
+  email: z.string().email().optional(),
+});
 const SuggestQuery = z.object({ q: z.string().min(1).max(200) });
 
 const CONVERSATION_COLS =
@@ -118,15 +123,14 @@ widgetApi.get("/conversations/:id/messages", validate(MessagesQuery, "query"), a
   return ok(c, { messages: results.reverse() });
 });
 
-widgetApi.post("/conversations", widgetAuthMiddleware, validate(PostMessageBody, "json"), widgetMsgLimit, async (c) => {
+widgetApi.post("/conversations", widgetAuthMiddleware, validate(CreateConversationBody, "json"), widgetMsgLimit, async (c) => {
   const workspaceId = c.get("widgetWorkspaceId");
   const userId = c.get("widgetUserId");
-  const { body } = c.get("body") as z.infer<typeof PostMessageBody>;
+  const { body, name, email } = c.get("body") as z.infer<typeof CreateConversationBody>;
 
-  const contact = await c.env.DB.prepare("SELECT id FROM contacts WHERE workspace_id=?1 AND user_id=?2")
-    .bind(workspaceId, userId)
-    .first<{ id: string }>();
-  if (!contact) throw ctxErr.conversation.notFound();
+  // Visitor-typed name/email are unverified — stored on the contact for display only, and only
+  // if the email isn't already held by another contact in this workspace.
+  const contact = await resolveContact(c.env.DB, workspaceId, userId, email, name, now(), { verifiedEmail: false });
 
   const out = await sendMessage(c.env, {
     workspaceId,

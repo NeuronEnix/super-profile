@@ -9,24 +9,30 @@ function formatTime(ts: number): string {
 
 export function TicketView({
   conversationId,
+  initial,
   widgetColor,
   send,
   subscribe,
+  reconnectNonce,
   onBack,
   onConversationChanged,
 }: {
   conversationId: string;
+  initial: ConversationSnapshot | null;
   widgetColor: string;
   send: (data: unknown) => void;
   subscribe: (fn: (event: WsEvent) => void) => () => void;
+  reconnectNonce: number;
   onBack: () => void;
   onConversationChanged: (c: ConversationSnapshot) => void;
 }) {
-  const [conversation, setConversation] = useState<ConversationSnapshot | null>(null);
+  const [conversation, setConversation] = useState<ConversationSnapshot | null>(initial);
   const [messages, setMessages] = useState<Message[]>([]);
   const [agentTyping, setAgentTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +48,22 @@ export function TicketView({
       cancelled = true;
     };
   }, [conversationId]);
+
+  // After a WS reconnect, fill any gap the socket missed while disconnected.
+  useEffect(() => {
+    if (reconnectNonce === 0) return;
+    const last = messagesRef.current[messagesRef.current.length - 1];
+    if (!last) return;
+    widgetApi<{ messages: Message[] }>(`/api/v1/widget/conversations/${conversationId}/messages?afterId=${last.id}`)
+      .then((data) => {
+        if (data.messages.length === 0) return;
+        setMessages((prev) => {
+          const seen = new Set(prev.map((m) => m.id));
+          return [...prev, ...data.messages.filter((m) => !seen.has(m.id))];
+        });
+      })
+      .catch(() => {});
+  }, [reconnectNonce, conversationId]);
 
   useEffect(() => {
     return subscribe((event) => {

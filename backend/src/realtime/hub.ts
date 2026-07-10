@@ -182,6 +182,13 @@ export class WorkspaceHub {
       ws.send(JSON.stringify({ type: WS_EVENT.PONG }));
       return;
     }
+    // Contact sockets may only act on their own conversations — the client picks the
+    // conversationId, so it must be checked against the socket's identity (the REST
+    // endpoints do the equivalent via assertOwnedConversation).
+    if (attachment.kind === "CONTACT" && (parsed.type === "TYPING" || parsed.type === "READ")) {
+      const owner = await this.getContactUserId(parsed.conversationId);
+      if (owner !== attachment.userId) return;
+    }
     if (parsed.type === "TYPING") {
       await this.handleTyping(attachment, parsed.conversationId, parsed.state);
       return;
@@ -322,6 +329,8 @@ export class WorkspaceHub {
 
     // The message insert and the conversation-counter update are one logical unit — batch them
     // so a crash between the two can never leave message_count/last_message_preview stale.
+    // The sender's own read watermark advances with their message (sending implies having read
+    // everything up to it) — otherwise a conversation shows as unread to the person who just replied.
     const statements = [
       db
         .prepare(
@@ -347,10 +356,12 @@ export class WorkspaceHub {
           `UPDATE conversations
            SET last_message_at=?1, last_message_preview=?2, message_count=message_count+1,
                status=?3, snoozed_until=CASE WHEN ?3='OPEN' THEN NULL ELSE snoozed_until END,
+               agent_last_read_at=CASE WHEN ?5='AGENT' THEN ?1 ELSE agent_last_read_at END,
+               contact_last_read_at=CASE WHEN ?5='CONTACT' THEN ?1 ELSE contact_last_read_at END,
                updated_at=?1
            WHERE id=?4`,
         )
-        .bind(ts, truncatePreview(input.bodyText), nextStatus, conversationId),
+        .bind(ts, truncatePreview(input.bodyText), nextStatus, conversationId, input.senderType),
     ];
 
     let reopenMessageId: string | null = null;

@@ -17,15 +17,15 @@ export function Composer({
   const loopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Typing signal: ping the other side right away, then a self-rescheduling setTimeout loop
-  // (never setInterval) re-pings every 3s ONLY if new characters were typed since the last ping.
-  // The first tick that finds nothing new stops the loop. The receiver shows the dots for 4s
+  // (never setInterval) re-pings every 2s ONLY if new characters were typed since the last ping.
+  // The first tick that finds nothing new stops the loop. The receiver shows the dots for 3s
   // per ping, so continuous typing keeps re-extending that window.
   function pingLoop() {
     loopRef.current = null;
-    if (!dirtyRef.current) return; // nothing typed in the last 3s → stop
+    if (!dirtyRef.current) return; // nothing typed in the last 2s → stop
     dirtyRef.current = false;
     onTyping?.();
-    loopRef.current = setTimeout(pingLoop, 3000);
+    loopRef.current = setTimeout(pingLoop, 2000);
   }
 
   function notifyTyping() {
@@ -34,7 +34,7 @@ export function Composer({
     if (!loopRef.current) {
       dirtyRef.current = false;
       onTyping();
-      loopRef.current = setTimeout(pingLoop, 3000);
+      loopRef.current = setTimeout(pingLoop, 2000);
     }
   }
 

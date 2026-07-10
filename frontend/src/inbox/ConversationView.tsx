@@ -130,10 +130,10 @@ export function ConversationView({
       } else if (event.type === "CONVERSATION_UPDATED" && event.conversation.id === conversationId) {
         setConversation((prev) => (prev ? { ...event.conversation, contact: prev.contact, unread: prev.unread } : prev));
       } else if (event.type === "TYPING" && event.conversationId === conversationId && event.from === "CONTACT") {
-        // Each ping shows the dots for 4s; a new ping resets the window from now.
+        // Each ping shows the dots for 3s; a new ping resets the window from now.
         setContactTyping(true);
         if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-        typingTimerRef.current = setTimeout(() => setContactTyping(false), 4000);
+        typingTimerRef.current = setTimeout(() => setContactTyping(false), 3000);
       } else if (event.type === "READ_RECEIPT" && event.conversationId === conversationId && event.by === "CONTACT") {
         setConversation((prev) => (prev ? { ...prev, contactLastReadAt: event.at } : prev));
       }

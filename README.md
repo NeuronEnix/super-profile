@@ -62,8 +62,8 @@ fallback route). This was a deliberate change from the original Pages-based plan
 CORS.
 
 ```
-                                   sp.hyugorix.com  (+ api-sp.hyugorix.com API alias)
-                                   ────────────────────────────────────────
+                                   sp.hyugorix.com
+                                   ───────────────
    Evaluator's        HTTPS        ┌──────────────────────────────────────┐
    browser  ───────────────────────▶  Cloudflare Worker (Hono)            │
    (dashboard SPA,                 │  /api/v1/*   REST + WS upgrade       │
@@ -459,11 +459,10 @@ pnpm --dir ../frontend build && npx wrangler deploy
 npx wrangler d1 migrations apply super-profile --remote --yes
 ```
 
-**Custom domains.** The Worker is bound to `sp.hyugorix.com` (app + API, same origin) and
-`api-sp.hyugorix.com` (a direct-API alias on the same Worker) via the `routes` block in
-`wrangler.jsonc` (`custom_domain: true`) — `wrangler deploy` auto-provisions the DNS records and
-edge TLS certs for these. Both are single-level subdomains (Universal SSL covers them). The app is
-shown to users as "SuperProfile"; only the hostname is shortened to `sp`.
+**Custom domain.** The Worker is bound to `sp.hyugorix.com` (app + API, same origin) via the
+`routes` block in `wrangler.jsonc` (`custom_domain: true`) — `wrangler deploy` auto-provisions the
+DNS record and edge TLS cert for it. It's a single-level subdomain (Universal SSL covers it). The
+app is shown to users as "SuperProfile"; only the hostname is shortened to `sp`.
 
 Other DNS on `hyugorix.com` (added via the Cloudflare dashboard — the wrangler token can't write
 arbitrary DNS, only Workers custom domains): a single-level `inbox.` MX/TXT set for inbound email,

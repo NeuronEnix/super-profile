@@ -92,12 +92,12 @@ reconnects; inbound email dedup for webhook retries.
       flip the constant in `backend/src/common/const.ts` and redeploy — limits are generous
       (won't trip evaluators).
 - [x] **Custom domain — DONE.** App is live at **https://sp.hyugorix.com** (display name stays
-      "SuperProfile"); the API is also aliased at **https://api-sp.hyugorix.com** (same Worker).
-      Both are Workers Custom Domains provisioned by `wrangler deploy` (auto DNS + TLS), both
-      single-level subdomains, apex untouched. `APP_URL` now points at `sp.hyugorix.com` so magic
-      links use it. The old `*.workers.dev` URL is now disabled (wrangler's default once a custom
-      domain exists) — if you want it back as a fallback, say so and I'll add `"workers_dev": true`
-      to `wrangler.jsonc`. README/e2e/docs all updated to the new URL.
+      "SuperProfile"). One Worker serves app + API same-origin: `/api/v1/*` → backend, everything
+      else → the SPA. It's a Workers Custom Domain provisioned by `wrangler deploy` (auto DNS +
+      TLS), a single-level subdomain, apex untouched. `APP_URL` points at `sp.hyugorix.com` so
+      magic links use it. The old `*.workers.dev` URL is now disabled (wrangler's default once a
+      custom domain exists) — if you want it back as a fallback, say so and I'll add
+      `"workers_dev": true` to `wrangler.jsonc`. README/e2e/docs all use `sp.hyugorix.com`.
 - [ ] **DMARC — exact change for you to make (removes your Gmail, points reports at support@).**
       A *strong* DMARC record already exists on `hyugorix.com` (`p=reject`, strict alignment — it's
       why app mail lands in Inbox, not spam; the overnight "add p=none" note was wrong). Its report

@@ -40,6 +40,8 @@ export type ConversationRow = {
   aiEscalated: number;
   contactLastReadAt: number | null;
   agentLastReadAt: number | null;
+  firstAgentReplyAt: number | null;
+  resolvedAt: number | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -114,6 +116,7 @@ const CONVERSATION_COLUMNS = `
   message_count as messageCount, ai_summary as aiSummary, ai_summary_msg_count as aiSummaryMsgCount,
   ai_handling as aiHandling, ai_escalated as aiEscalated,
   contact_last_read_at as contactLastReadAt, agent_last_read_at as agentLastReadAt,
+  first_agent_reply_at as firstAgentReplyAt, resolved_at as resolvedAt,
   created_at as createdAt, updated_at as updatedAt
 `;
 
@@ -394,6 +397,8 @@ export class WorkspaceHub {
                contact_last_read_at=CASE WHEN ?5='CONTACT' THEN ?1 ELSE contact_last_read_at END,
                assignee_id=CASE WHEN ?5='AGENT' AND assignee_id IS NULL THEN ?6 ELSE assignee_id END,
                ai_escalated=CASE WHEN ?5='AGENT' THEN 0 ELSE ai_escalated END,
+               first_agent_reply_at=CASE WHEN ?5 IN ('AGENT','AI') AND first_agent_reply_at IS NULL THEN ?1 ELSE first_agent_reply_at END,
+               resolved_at=CASE WHEN ?3='OPEN' THEN NULL ELSE resolved_at END,
                updated_at=?1
            WHERE id=?4`,
         )

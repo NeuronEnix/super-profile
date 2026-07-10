@@ -25,6 +25,8 @@ const PatchWorkspaceBody = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional(),
+  slaFirstResponseMin: z.number().int().min(1).max(10_080).nullable().optional(),
+  slaResolutionMin: z.number().int().min(1).max(10_080).nullable().optional(),
 });
 
 export const workspacesApi = new Hono<HonoEnv>();
@@ -57,7 +59,8 @@ workspacesApi.get("/", async (c) => {
   const userId = c.get("userId");
   const { results } = await c.env.DB.prepare(
     `SELECT w.id as id, w.name as name, w.slug as slug, w.widget_key as widgetKey,
-            w.widget_color as widgetColor, m.role as role
+            w.widget_color as widgetColor, w.sla_first_response_min as slaFirstResponseMin,
+            w.sla_resolution_min as slaResolutionMin, m.role as role
      FROM workspace_members m JOIN workspaces w ON w.id = m.workspace_id
      WHERE m.user_id=?1`,
   )
@@ -81,6 +84,14 @@ workspaceSettingsApi.patch("/", requireAdmin, validate(PatchWorkspaceBody, "json
     sets.push(`widget_color=?${sets.length + 1}`);
     binds.push(patch.widgetColor);
   }
+  if (patch.slaFirstResponseMin !== undefined) {
+    sets.push(`sla_first_response_min=?${sets.length + 1}`);
+    binds.push(patch.slaFirstResponseMin);
+  }
+  if (patch.slaResolutionMin !== undefined) {
+    sets.push(`sla_resolution_min=?${sets.length + 1}`);
+    binds.push(patch.slaResolutionMin);
+  }
   if (sets.length > 0) {
     binds.push(workspaceId);
     await c.env.DB.prepare(`UPDATE workspaces SET ${sets.join(", ")} WHERE id=?${sets.length + 1}`)
@@ -88,7 +99,9 @@ workspaceSettingsApi.patch("/", requireAdmin, validate(PatchWorkspaceBody, "json
       .run();
   }
   const updated = await c.env.DB.prepare(
-    "SELECT id, name, slug, widget_key as widgetKey, widget_color as widgetColor FROM workspaces WHERE id=?1",
+    `SELECT id, name, slug, widget_key as widgetKey, widget_color as widgetColor,
+            sla_first_response_min as slaFirstResponseMin, sla_resolution_min as slaResolutionMin
+     FROM workspaces WHERE id=?1`,
   )
     .bind(workspaceId)
     .first();

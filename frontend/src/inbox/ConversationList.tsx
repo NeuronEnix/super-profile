@@ -1,3 +1,4 @@
+import { computeSla, type SlaTargets } from "../lib/sla";
 import type { Channel, Conversation, ConversationStatus, Member } from "../lib/types";
 
 export type Filters = { channel?: Channel; status: ConversationStatus; assigneeId?: string };
@@ -55,6 +56,7 @@ export function ConversationList({
   selectedId,
   onSelect,
   currentUserId,
+  slaTargets,
 }: {
   conversations: Conversation[];
   loading: boolean;
@@ -64,6 +66,7 @@ export function ConversationList({
   selectedId: string | null;
   onSelect: (id: string) => void;
   currentUserId: string | undefined;
+  slaTargets: SlaTargets;
 }) {
   return (
     <div className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-white">
@@ -126,6 +129,20 @@ export function ConversationList({
         )}
         {conversations.map((c) => {
           const accent = statusAccent(c, members, currentUserId);
+          const sla = c.status === "RESOLVED" ? null : computeSla(c, slaTargets, Date.now());
+          const worst =
+            sla && (sla.firstResponse?.state === "BREACHED" || sla.resolution?.state === "BREACHED")
+              ? { label: "SLA breached", className: "bg-red-100 text-red-700" }
+              : sla && (sla.firstResponse?.state === "PENDING" || sla.resolution?.state === "PENDING")
+                ? (() => {
+                    const due = Math.min(
+                      sla.firstResponse?.state === "PENDING" ? sla.firstResponse.dueAt : Infinity,
+                      sla.resolution?.state === "PENDING" ? sla.resolution.dueAt : Infinity,
+                    );
+                    const min = Math.max(0, Math.ceil((due - Date.now()) / 60_000));
+                    return { label: `⏰ ${min < 60 ? `${min}m` : `${Math.floor(min / 60)}h`}`, className: "bg-amber-100 text-amber-700" };
+                  })()
+                : null;
           return (
             <button
               key={c.id}
@@ -158,6 +175,9 @@ export function ConversationList({
                   >
                     {accent.capsule.text}
                   </span>
+                )}
+                {worst && (
+                  <span className={`shrink-0 rounded-full px-1.5 py-px text-[9px] font-medium ${worst.className}`}>{worst.label}</span>
                 )}
                 {c.unread && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-600" />}
               </div>

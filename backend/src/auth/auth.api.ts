@@ -148,12 +148,22 @@ authApi.get("/me", authMiddleware, async (c) => {
   if (!user) throw ctxErr.user.notFound();
   const { results } = await c.env.DB.prepare(
     `SELECT w.id as id, w.name as name, w.slug as slug, w.widget_key as widgetKey,
-            w.widget_color as widgetColor, m.role as role
+            w.widget_color as widgetColor, w.sla_first_response_min as slaFirstResponseMin,
+            w.sla_resolution_min as slaResolutionMin, m.role as role
      FROM workspace_members m JOIN workspaces w ON w.id = m.workspace_id
      WHERE m.user_id=?1`,
   )
     .bind(userId)
-    .all<{ id: string; name: string; slug: string; widgetKey: string; widgetColor: string; role: string }>();
+    .all<{
+      id: string;
+      name: string;
+      slug: string;
+      widgetKey: string;
+      widgetColor: string;
+      slaFirstResponseMin: number | null;
+      slaResolutionMin: number | null;
+      role: string;
+    }>();
   return ok(c, { user, workspaces: results });
 });
 

@@ -4,6 +4,7 @@ import { api, ApiError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 import { CannedSection } from "./CannedSection";
+import { SlaSection } from "./SlaSection";
 import type { Invite, Member, Role } from "../lib/types";
 
 export default function SettingsPage() {
@@ -177,6 +178,8 @@ export default function SettingsPage() {
       </section>
 
       {wsId && <CannedSection wsId={wsId} />}
+
+      {isAdmin && ws && <SlaSection ws={ws} />}
 
       <section>
         <h2 className="mb-1 text-sm font-semibold text-slate-900">Workspace</h2>

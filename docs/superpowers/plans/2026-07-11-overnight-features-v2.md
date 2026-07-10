@@ -1898,7 +1898,7 @@ test("canned responses: create in settings, insert via / in composer, send", asy
 - `Conversation` type gains `firstAgentReplyAt: number | null; resolvedAt: number | null`
 - `Workspace` type gains `slaFirstResponseMin?: number | null; slaResolutionMin?: number | null`
 
-- [ ] **Step 1: Migration `backend/migrations/0006_sla.sql`:**
+- [x] **Step 1: Migration `backend/migrations/0006_sla.sql`:**
 
 ```sql
 ALTER TABLE conversations ADD COLUMN first_agent_reply_at INTEGER;
@@ -1913,7 +1913,7 @@ UPDATE conversations SET resolved_at = updated_at WHERE status = 'RESOLVED';
 
 Apply locally: `cd backend && CI=true npx wrangler d1 migrations apply super-profile --local`
 
-- [ ] **Step 2: Failing tests** — `backend/test/sla.test.ts`:
+- [x] **Step 2: Failing tests** — `backend/test/sla.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1953,7 +1953,7 @@ describe("computeSla", () => {
 });
 ```
 
-- [ ] **Step 3: Run to fail, implement `frontend/src/lib/sla.ts`:**
+- [x] **Step 3: Run to fail, implement `frontend/src/lib/sla.ts`:**
 
 ```ts
 export type SlaTargets = { firstResponseMin: number | null; resolutionMin: number | null };
@@ -1983,7 +1983,7 @@ export function computeSla(conv: SlaConv, targets: SlaTargets, nowMs: number) {
 
 `cd backend && pnpm test sla` — PASS.
 
-- [ ] **Step 4: Stamp in the hub.** In `backend/src/realtime/hub.ts`:
+- [x] **Step 4: Stamp in the hub.** In `backend/src/realtime/hub.ts`:
   - Add to `CONVERSATION_COLUMNS` (after the `ai_handling…` line): `first_agent_reply_at as firstAgentReplyAt, resolved_at as resolvedAt,`
   - Add to `ConversationRow` type: `firstAgentReplyAt: number | null; resolvedAt: number | null;`
   - In `handleMessage`'s conversation UPDATE SQL, after the `ai_escalated=…` line add:
@@ -1993,7 +1993,7 @@ export function computeSla(conv: SlaConv, targets: SlaTargets, nowMs: number) {
     ```
     (binds unchanged: ?1=ts, ?3=nextStatus, ?5=senderType — an AI reply counts as the first response; a reopening message clears the stale resolved_at.)
 
-- [ ] **Step 5: Stamp in the resolve/reopen endpoint.** In `backend/src/conversations/conversations.api.ts`:
+- [x] **Step 5: Stamp in the resolve/reopen endpoint.** In `backend/src/conversations/conversations.api.ts`:
   - Add to `CONVERSATION_LIST_COLUMNS`: `c.first_agent_reply_at as firstAgentReplyAt, c.resolved_at as resolvedAt,` and to `ConversationListRow`: `firstAgentReplyAt: number | null; resolvedAt: number | null;`
   - In the PATCH handler where `patch.status` is applied, extend the status branch:
     ```ts
@@ -2011,7 +2011,7 @@ export function computeSla(conv: SlaConv, targets: SlaTargets, nowMs: number) {
     }
     ```
 
-- [ ] **Step 6: Workspace targets.** In `backend/src/workspaces/workspaces.api.ts`:
+- [x] **Step 6: Workspace targets.** In `backend/src/workspaces/workspaces.api.ts`:
   - Extend `PatchWorkspaceBody` with:
     ```ts
     slaFirstResponseMin: z.number().int().min(1).max(10_080).nullable().optional(),
@@ -2031,7 +2031,7 @@ export function computeSla(conv: SlaConv, targets: SlaTargets, nowMs: number) {
   - Add `w.sla_first_response_min as slaFirstResponseMin, w.sla_resolution_min as slaResolutionMin` to the GET `/` list SELECT, and `sla_first_response_min as slaFirstResponseMin, sla_resolution_min as slaResolutionMin` to the PATCH's final SELECT.
   - Check `backend/src/auth/auth.api.ts`: `grep -n "workspaces" backend/src/auth/auth.api.ts` — if `/me` selects workspace columns explicitly, add the same two columns there.
 
-- [ ] **Step 7: Frontend types + settings.** In `frontend/src/lib/types.ts`: add to `Workspace`: `slaFirstResponseMin?: number | null; slaResolutionMin?: number | null;` and to `Conversation`: `firstAgentReplyAt: number | null; resolvedAt: number | null;`.
+- [x] **Step 7: Frontend types + settings.** In `frontend/src/lib/types.ts`: add to `Workspace`: `slaFirstResponseMin?: number | null; slaResolutionMin?: number | null;` and to `Conversation`: `firstAgentReplyAt: number | null; resolvedAt: number | null;`.
 
   Create `frontend/src/settings/SlaSection.tsx`:
 
@@ -2106,7 +2106,7 @@ export function SlaSection({ ws }: { ws: Workspace }) {
 
 In `SettingsPage.tsx`: `import { SlaSection } from "./SlaSection";` and render `{isAdmin && ws && <SlaSection ws={ws} />}` after the CannedSection.
 
-- [ ] **Step 8: Inbox chips.** In `frontend/src/inbox/InboxPage.tsx`: derive targets and pass down:
+- [x] **Step 8: Inbox chips.** In `frontend/src/inbox/InboxPage.tsx`: derive targets and pass down:
   ```tsx
   const { user, workspaces } = useAuth();
   const ws = workspaces.find((w) => w.id === wsId);
@@ -2166,9 +2166,9 @@ In `SettingsPage.tsx`: `import { SlaSection } from "./SlaSection";` and render `
   })()}
   ```
 
-- [ ] **Step 9: Green + deploy.** `cd backend && pnpm test` all pass; `pnpm --dir frontend build` (repo root); `cd backend && CI=true npx wrangler d1 migrations apply super-profile --remote && npx wrangler deploy`.
+- [x] **Step 9: Green + deploy.** `cd backend && pnpm test` all pass; `pnpm --dir frontend build` (repo root); `cd backend && CI=true npx wrangler d1 migrations apply super-profile --remote && npx wrangler deploy`.
 
-- [ ] **Step 10: Prod verify.** Via debug-auth API against prod: create throwaway ws; PATCH sla targets `{slaFirstResponseMin: 1, slaResolutionMin: 2}`; widget-boot + create conversation; GET conversations → confirm `firstAgentReplyAt: null`; wait ~70s; GET again and confirm the frontend math would show BREACHED (the API returns the raw timestamps — assert `Date.now() > createdAt + 60_000`); agent-reply via POST message; GET → `firstAgentReplyAt` is now set. Log the evidence. **Commit + push**: `git add -A && git commit -m "feat(sla): first-response/resolution targets with on-read breach chips" && git push origin main`
+- [x] **Step 10: Prod verify.** Via debug-auth API against prod: create throwaway ws; PATCH sla targets `{slaFirstResponseMin: 1, slaResolutionMin: 2}`; widget-boot + create conversation; GET conversations → confirm `firstAgentReplyAt: null`; wait ~70s; GET again and confirm the frontend math would show BREACHED (the API returns the raw timestamps — assert `Date.now() > createdAt + 60_000`); agent-reply via POST message; GET → `firstAgentReplyAt` is now set. Log the evidence. **Commit + push**: `git add -A && git commit -m "feat(sla): first-response/resolution targets with on-read breach chips" && git push origin main`
 
 ---
 

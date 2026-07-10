@@ -6,6 +6,7 @@ import { SummaryPanel } from "./SummaryPanel";
 import { Composer, type DraftSuggestion } from "./Composer";
 import { Ticks, TypingDots, type TickState } from "../components/MessageStatus";
 import { Linkified } from "../lib/linkify";
+import { computeSla, type SlaTargets } from "../lib/sla";
 import type { CannedResponse, Conversation, ConversationSnapshot, Member, Message, WsEvent } from "../lib/types";
 
 function formatTime(ts: number): string {
@@ -37,6 +38,7 @@ export function ConversationView({
   presenceOnline,
   onlineContactIds,
   onConversationChanged,
+  slaTargets,
 }: {
   conversationId: string;
   wsId: string;
@@ -49,6 +51,7 @@ export function ConversationView({
   presenceOnline: number;
   onlineContactIds: string[];
   onConversationChanged: (c: Conversation) => void;
+  slaTargets: SlaTargets;
 }) {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -281,6 +284,30 @@ export function ConversationView({
               )}
             </div>
             <div className="text-xs text-slate-500">{conversation.subject || conversation.channel}</div>
+            {(() => {
+              const sla = computeSla(conversation, slaTargets, Date.now());
+              if (!sla.firstResponse && !sla.resolution) return null;
+              const fmt = (s: NonNullable<typeof sla.firstResponse>, name: string) =>
+                s.state === "MET"
+                  ? `${name} ${s.tookMin}m ✓`
+                  : s.state === "BREACHED"
+                    ? `${name} breached${s.tookMin != null ? ` (${s.tookMin}m)` : ""}`
+                    : `${name} due in ${Math.max(0, Math.ceil((s.dueAt - Date.now()) / 60_000))}m`;
+              return (
+                <div className="mt-0.5 flex gap-2 text-[10px]">
+                  {sla.firstResponse && (
+                    <span className={sla.firstResponse.state === "BREACHED" ? "text-red-600" : sla.firstResponse.state === "MET" ? "text-emerald-600" : "text-amber-600"}>
+                      {fmt(sla.firstResponse, "First response")}
+                    </span>
+                  )}
+                  {sla.resolution && (
+                    <span className={sla.resolution.state === "BREACHED" ? "text-red-600" : sla.resolution.state === "MET" ? "text-emerald-600" : "text-amber-600"}>
+                      {fmt(sla.resolution, "Resolution")}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-2">
             <select

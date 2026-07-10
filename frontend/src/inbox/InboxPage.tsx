@@ -26,7 +26,7 @@ function mergeSnapshot(list: Conversation[], snapshot: ConversationSnapshot): Co
 
 export default function InboxPage() {
   const { wsId } = useParams();
-  const { user } = useAuth();
+  const { user, workspaces } = useAuth();
   const { showError } = useToast();
   const [filters, setFilters] = useState<Filters>({ status: "OPEN" });
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -120,6 +120,9 @@ export default function InboxPage() {
 
   if (!wsId) return null;
 
+  const ws = workspaces.find((w) => w.id === wsId);
+  const slaTargets = { firstResponseMin: ws?.slaFirstResponseMin ?? null, resolutionMin: ws?.slaResolutionMin ?? null };
+
   return (
     <div className="flex h-screen">
       <ConversationList
@@ -131,6 +134,7 @@ export default function InboxPage() {
         selectedId={selectedId}
         onSelect={setSelectedId}
         currentUserId={user?.id}
+        slaTargets={slaTargets}
       />
       {selectedId ? (
         <ConversationView
@@ -146,6 +150,7 @@ export default function InboxPage() {
           presenceOnline={presenceOnline}
           onlineContactIds={onlineContactIds}
           onConversationChanged={handleConversationChanged}
+          slaTargets={slaTargets}
         />
       ) : (
         <div className="flex flex-1 items-center justify-center text-sm text-slate-400">

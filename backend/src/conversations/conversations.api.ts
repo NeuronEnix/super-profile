@@ -41,6 +41,7 @@ const CONVERSATION_LIST_COLUMNS = `
   c.last_message_preview as lastMessagePreview, c.message_count as messageCount,
   c.ai_handling as aiHandling, c.ai_escalated as aiEscalated,
   c.agent_last_read_at as agentLastReadAt, c.contact_last_read_at as contactLastReadAt,
+  c.first_agent_reply_at as firstAgentReplyAt, c.resolved_at as resolvedAt,
   c.created_at as createdAt, c.updated_at as updatedAt,
   ct.id as contactRowId, ct.name as contactName, ct.email as contactEmail
 `;
@@ -61,6 +62,8 @@ type ConversationListRow = {
   aiEscalated: number;
   agentLastReadAt: number | null;
   contactLastReadAt: number | null;
+  firstAgentReplyAt: number | null;
+  resolvedAt: number | null;
   createdAt: number;
   updatedAt: number;
   contactRowId: string;
@@ -269,12 +272,18 @@ conversationsApi.patch("/conversations/:id", validate(PatchConversationBody, "js
   if (patch.status !== undefined && patch.status !== current.status) {
     binds.push(patch.status);
     sets.push(`status=?${binds.length}`);
-    if (patch.status === CONVERSATION.STATUS.RESOLVED) systemMessages.push("Resolved");
-    else if (patch.status === CONVERSATION.STATUS.SNOOZED) {
-      systemMessages.push(
-        patch.snoozedUntil ? `Snoozed until ${new Date(patch.snoozedUntil).toISOString()}` : "Snoozed",
-      );
-    } else if (patch.status === CONVERSATION.STATUS.OPEN) systemMessages.push("Reopened");
+    if (patch.status === CONVERSATION.STATUS.RESOLVED) {
+      binds.push(ts);
+      sets.push(`resolved_at=?${binds.length}`);
+      systemMessages.push("Resolved");
+    } else {
+      sets.push("resolved_at=NULL");
+      if (patch.status === CONVERSATION.STATUS.SNOOZED) {
+        systemMessages.push(
+          patch.snoozedUntil ? `Snoozed until ${new Date(patch.snoozedUntil).toISOString()}` : "Snoozed",
+        );
+      } else if (patch.status === CONVERSATION.STATUS.OPEN) systemMessages.push("Reopened");
+    }
   }
   // Resolving releases the assignment: a closed conversation is open to the whole team, and
   // whoever reopens it (below) claims it fresh. Skip when the caller set assignee itself.

@@ -11,6 +11,8 @@ export type Workspace = {
   slug: string;
   widgetKey: string;
   widgetColor: string;
+  slaFirstResponseMin?: number | null;
+  slaResolutionMin?: number | null;
   role: Role;
 };
 
@@ -43,6 +45,8 @@ export type Conversation = {
   aiEscalated: number;
   agentLastReadAt: number | null;
   contactLastReadAt: number | null;
+  firstAgentReplyAt: number | null;
+  resolvedAt: number | null;
   createdAt: number;
   updatedAt: number;
   unread: boolean;

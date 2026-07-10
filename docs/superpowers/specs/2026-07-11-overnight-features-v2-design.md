@@ -64,8 +64,16 @@ following its exact visual pattern (collapsed bar + status chip; expanded detail
   update `title`, `body_md`, `body_text`, `updated_at` (slug **stays stable** so public links
   never break). New page → insert as **PUBLISHED** (`published_at = now`). Never delete.
   Manually-created articles (`source_url IS NULL`) are never touched.
-- **Cap**: 40 pages fetched per sync. Same-origin only, and path must be under the given
-  path prefix (`https://docs.acme.com/help` → only `/help/**`).
+- **Caps (user decision: "10 articles is more than enough for now")**: at most **10 articles
+  imported** and at most **15 pages fetched** per sync — whichever hits first ends the crawl.
+  Same-origin only, and path must be under the given path prefix
+  (`https://docs.acme.com/help` → only `/help/**`).
+- **Bot-protection detection**: 3 consecutive fetches answering 403/429, or carrying a
+  challenge marker (`x-vercel-mitigated: challenge` header, `cf-mitigated: challenge`,
+  or a "Security Checkpoint"/challenge-page title), abort the run → status FAILED with error
+  **"This site blocks automated access (bot protection). Try a different docs URL."**
+  Verified need: superprofile.bio (probed 2026-07-11) challenges every non-browser client
+  site-wide — it is the designated graceful-failure showcase in the demo.
 
 ### Data model — migration `0005_kb_sync.sql`
 
@@ -113,7 +121,7 @@ zero extra code.
     require 200 + `text/html`; HTML capped at 2 MB. Page-level failures increment
     `pages_failed` and never abort the run.
   - extract main content → convert to markdown → upsert article (see below) → collect
-    in-scope links into the frontier (dedupe, cap 40 total fetched).
+    in-scope links into the frontier (dedupe; stop at 15 fetched or 10 imported).
   - write-through progress counters to the D1 row (the UI polls D1 only — the DO is
     write-only from the panel's perspective).
   - frontier empty or cap reached → **finalize**: generate the digest, set status DONE +
@@ -182,8 +190,9 @@ handler article links — the AI cites `docs.kaushikrb.com/a/…` when the domai
   returns the fresh row. Errors: `ctxErr.kbSync.invalidUrl` ("Enter a valid docs site URL"),
   `.cooldown` ("You can sync again in {…}"), `.alreadyRunning` ("A sync is already running").
 
-Consts: `KB_SYNC = { STATUS: {RUNNING, DONE, FAILED}, PAGE_CAP: 40, BATCH_SIZE: 5,
-FETCH_TIMEOUT_MS: 10_000, MAX_HTML_BYTES: 2_000_000, MIN_CONTENT_CHARS: 80, USER_AGENT: … }`,
+Consts: `KB_SYNC = { STATUS: {RUNNING, DONE, FAILED}, PAGE_CAP: 15, ARTICLE_CAP: 10,
+BATCH_SIZE: 5, FETCH_TIMEOUT_MS: 10_000, MAX_HTML_BYTES: 2_000_000, MIN_CONTENT_CHARS: 80,
+BLOCKED_STREAK_LIMIT: 3, USER_AGENT: … }`,
 `AI_CONF.DIGEST = { MAX_ARTICLES: 60, PER_ARTICLE_EXCERPT: 200, MAX_TOKENS: 900,
 DIGEST_CHAR_CAP: 4_000 }`. Config: `KB_SYNC_COOLDOWN_MIN` through `getConfig` (vars default
 "1440").
@@ -197,13 +206,19 @@ DIGEST_CHAR_CAP: 4_000 }`. Config: `KB_SYNC_COOLDOWN_MIN` through `getConfig` (v
 - **No e2e against external sites** (flaky + impolite), **no self-crawl** (error 1042 —
   Worker cannot fetch its own hostname).
 - **Prod verification (once, after deploy)**: create/use a **throwaway test workspace — NOT
-  ban-gera** (the demo workspace with docs.kaushikrb.com must not be polluted overnight);
-  sync `https://hono.dev/docs` (static VitePress, ≤40 pages, thematically apt); verify:
-  panel progress ticks, articles + collections appear, public KB page renders one, cooldown
-  countdown shows and the button is disabled, digest present
-  (`SELECT length(kb_digest) FROM workspaces …`). Crawling a public docs site once by hand is
-  not a third-party *service* call — the no-third-party rule (Resend etc.) is about automated
-  tests and paid/rate-limited APIs; the crawl stays out of all test suites.
+  ban-gera** (the demo workspace with docs.kaushikrb.com must stay untouched overnight);
+  sync `https://hono.dev/docs` (probed 2026-07-11: 200, server-rendered, `<main>` present,
+  no sitemap → exercises the BFS path); verify: panel progress ticks, ~10 articles +
+  collections appear, public KB page renders one, cooldown countdown shows and the button is
+  disabled, digest present (`SELECT length(kb_digest) FROM workspaces …`). Crawling a public
+  docs site once by hand is not a third-party *service* call — the no-third-party rule
+  (Resend etc.) is about automated tests and paid/rate-limited APIs; the crawl stays out of
+  all test suites.
+- **Morning demo script (goes in MORNING.md, run on ban-gera by the user)**: paste
+  `https://superprofile.bio/blog` → Sync → watch it fail honestly with the bot-protection
+  message (FAILED never arms the cooldown) → paste `https://hono.dev/docs` → Sync → watch the
+  KB fill live and the articles appear on docs.kaushikrb.com. Failure-first ordering is what
+  makes the sequence work within the cooldown rules.
 
 ---
 

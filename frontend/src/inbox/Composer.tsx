@@ -21,6 +21,14 @@ export function Composer({
   const [sending, setSending] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [fixing, setFixing] = useState(false);
+  const [autoFix, setAutoFix] = useState(() => localStorage.getItem("sp_composer_autofix") === "1");
+
+  function toggleAutoFix() {
+    setAutoFix((prev) => {
+      localStorage.setItem("sp_composer_autofix", prev ? "0" : "1");
+      return !prev;
+    });
+  }
   const [sources, setSources] = useState<DraftSuggestion["sources"] | null>(null);
   const dirtyRef = useRef(false);
   const loopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,10 +92,18 @@ export function Composer({
   }
 
   async function handleSend() {
-    const trimmed = text.trim();
+    let trimmed = text.trim();
     if (!trimmed || sending) return;
     setSending(true);
     try {
+      if (autoFix && onFixGrammar) {
+        try {
+          trimmed = await onFixGrammar(trimmed);
+          setText(trimmed); // show what's actually being sent
+        } catch {
+          // AI down must never block sending — fall back to the original text.
+        }
+      }
       await onSend(trimmed);
       setText("");
       setSources(null);
@@ -132,9 +148,25 @@ export function Composer({
         <div className="flex items-center gap-2">
           {onFixGrammar && (
             <button
+              onClick={toggleAutoFix}
+              disabled={disabled}
+              title="Automatically correct grammar every time you send"
+              aria-pressed={autoFix}
+              className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
+                autoFix
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                  : "border-slate-200 text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${autoFix ? "bg-emerald-500" : "bg-slate-300"}`} />
+              Auto-fix on send
+            </button>
+          )}
+          {onFixGrammar && (
+            <button
               onClick={handleFixGrammar}
               disabled={disabled || sending || fixing || !text.trim()}
-              title="Fix grammar, spelling and punctuation without changing your wording"
+              title="Fix grammar, spelling, punctuation and capitalization without changing your wording"
               className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
             >
               {fixing ? "Fixing…" : "Correct grammar"}
@@ -155,7 +187,7 @@ export function Composer({
             disabled={disabled || sending || !text.trim()}
             className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
           >
-            Send
+            {sending ? "Sending…" : "Send"}
           </button>
         </div>
       </div>

@@ -5,9 +5,13 @@ import type { Env } from "../types";
 
 const SYSTEM_PROMPT =
   "You are a copy editor for a customer support agent's reply. " +
-  "Fix grammar, spelling, punctuation and capitalization ONLY. " +
-  "Keep the author's wording, tone, meaning, line breaks and length — change nothing that is already correct, " +
-  "and never add, remove or rephrase content. If the text is already correct, return it unchanged. " +
+  "Fix grammar, spelling, punctuation and capitalization ONLY. Always: " +
+  "capitalize the first letter of every sentence, including after each period, question mark or exclamation mark; " +
+  "capitalize proper nouns (people's names, products) and the word 'I', but never capitalize any other mid-sentence word; " +
+  "add missing punctuation — end each sentence with a period (or fitting mark), add clearly needed apostrophes (\"dont\" -> \"don't\"), " +
+  "and when a comma splices two complete sentences, replace it with a period and capitalize the next word. " +
+  "Keep the author's wording, tone, meaning, line breaks and length — never rephrase, add or remove content beyond those corrections. " +
+  "If the text is already correct, return it unchanged. " +
   "Output only the corrected text, with no preamble, quotes or explanation.";
 
 export async function correctGrammar(env: Env, text: string): Promise<string> {

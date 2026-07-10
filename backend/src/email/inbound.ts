@@ -28,6 +28,41 @@ export function stripSubjectPrefix(subject: string): string {
   return s;
 }
 
+/**
+ * Removes quoted reply history / attribution trailers from a plain-text email body so each inbound
+ * message reads like a single chat bubble instead of dragging the whole thread along. Handles the
+ * common Gmail/Apple/mobile "On <date> … wrote:" attribution (which may wrap across lines) plus the
+ * ">" quote block, and Outlook's "-----Original Message-----" / "____" dividers. Best-effort by
+ * design (email quoting has no standard); never returns empty — falls back to the original text.
+ */
+export function stripQuotedReply(text: string): string {
+  if (!text) return text;
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+
+  let cut = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (t.startsWith(">")) {
+      cut = i;
+      break;
+    }
+    if (/^-{2,}\s*Original Message\s*-{2,}/i.test(t) || /^_{5,}\s*$/.test(t)) {
+      cut = i;
+      break;
+    }
+    // "On <date> … wrote:" — the attribution can wrap over a few lines before it ends in "wrote:".
+    if (/^On\b/.test(t) && /\bwrote:/.test(lines.slice(i, i + 4).join(" "))) {
+      cut = i;
+      break;
+    }
+  }
+  if (cut === -1) return text.trim();
+
+  let end = cut;
+  while (end > 0 && lines[end - 1].trim() === "") end--; // drop the blank line(s) above the quote
+  return lines.slice(0, end).join("\n").trim() || text.trim();
+}
+
 export type ThreadLookup = {
   validateConversationInWorkspace: (conversationId: string) => Promise<boolean>;
   findConversationByMessageIds: (messageIds: string[]) => Promise<string | null>;
@@ -131,7 +166,7 @@ export async function ingestInboundEmail(env: Env, parsed: InboundEmailInput): P
         }),
     senderType: "CONTACT",
     senderId: user.id,
-    bodyText: parsed.text,
+    bodyText: stripQuotedReply(parsed.text),
     bodyHtml: parsed.html,
     emailMessageId: parsed.messageId,
     emailInReplyTo: parsed.inReplyTo,

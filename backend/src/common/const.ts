@@ -1,7 +1,7 @@
 export const ROLE = { ADMIN: "ADMIN", AGENT: "AGENT" } as const;
 export const CHANNEL = { CHAT: "CHAT", EMAIL: "EMAIL" } as const;
 export const CONVERSATION = { STATUS: { OPEN: "OPEN", SNOOZED: "SNOOZED", RESOLVED: "RESOLVED" } } as const;
-export const MESSAGE = { SENDER_TYPE: { CONTACT: "CONTACT", AGENT: "AGENT", SYSTEM: "SYSTEM" } } as const;
+export const MESSAGE = { SENDER_TYPE: { CONTACT: "CONTACT", AGENT: "AGENT", SYSTEM: "SYSTEM", AI: "AI" } } as const;
 export const ARTICLE = { STATUS: { DRAFT: "DRAFT", PUBLISHED: "PUBLISHED" } } as const;
 export const DOMAIN = { STATUS: { PENDING_DNS: "PENDING_DNS", ACTIVE: "ACTIVE", FAILED: "FAILED" } } as const;
 export const AUTH = { ACCESS_TOKEN_TTL_SEC: 30 * 60, REFRESH_TOKEN_TTL_SEC: 30 * 24 * 3600,
@@ -10,7 +10,8 @@ export const AUTH = { ACCESS_TOKEN_TTL_SEC: 30 * 60, REFRESH_TOKEN_TTL_SEC: 30 *
 export const AI_CONF = { MODEL: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   SUMMARY_WINDOW: 30, TIMEOUT_MS: 10_000, MAX_TOKENS: 300,
   DRAFT: { WINDOW: 20, MAX_TOKENS: 400, KB_TOP_K: 3, KB_SNIPPET_CHARS: 1500, QUERY_CHARS: 200 },
-  GRAMMAR: { MAX_INPUT_CHARS: 4000, MAX_TOKENS: 1200 } } as const;
+  GRAMMAR: { MAX_INPUT_CHARS: 4000, MAX_TOKENS: 1200 },
+  HANDLER: { WINDOW: 20, MAX_TOKENS: 350, KB_TOP_K: 3, KB_SNIPPET_CHARS: 1200 } } as const;
 export const FLAG = { RATE_LIMIT_ENABLED: false } as const;
 export const RATE_LIMIT = { MAGIC_LINK: { PER_EMAIL: 3, PER_IP: 10, WINDOW_SEC: 600 },
   WIDGET_MSG: { PER_USER: 60, WINDOW_SEC: 60 } } as const;

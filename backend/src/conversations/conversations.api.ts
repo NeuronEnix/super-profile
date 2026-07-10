@@ -8,6 +8,7 @@ import { CHANNEL, CONVERSATION } from "../common/const";
 import { now } from "../common/id";
 import { sendMessage, markRead, notifyConversationUpdated } from "../realtime/hub";
 import { sendReply } from "../email/outbound";
+import { runAiTurn } from "../ai/handler";
 import { encodeConversationCursor, decodeConversationCursor } from "./service";
 import type { HonoEnv } from "../common/hono-env";
 
@@ -38,6 +39,7 @@ const CONVERSATION_LIST_COLUMNS = `
   c.status as status, c.assignee_id as assigneeId, c.subject as subject,
   c.snoozed_until as snoozedUntil, c.last_message_at as lastMessageAt,
   c.last_message_preview as lastMessagePreview, c.message_count as messageCount,
+  c.ai_handling as aiHandling, c.ai_escalated as aiEscalated,
   c.agent_last_read_at as agentLastReadAt, c.contact_last_read_at as contactLastReadAt,
   c.created_at as createdAt, c.updated_at as updatedAt,
   ct.id as contactRowId, ct.name as contactName, ct.email as contactEmail
@@ -55,6 +57,8 @@ type ConversationListRow = {
   lastMessageAt: number;
   lastMessagePreview: string;
   messageCount: number;
+  aiHandling: number;
+  aiEscalated: number;
   agentLastReadAt: number | null;
   contactLastReadAt: number | null;
   createdAt: number;
@@ -230,10 +234,10 @@ conversationsApi.patch("/conversations/:id", validate(PatchConversationBody, "js
   const patch = c.get("body") as z.infer<typeof PatchConversationBody>;
 
   const current = await c.env.DB.prepare(
-    "SELECT status, assignee_id as assigneeId FROM conversations WHERE id=?1 AND workspace_id=?2",
+    "SELECT status, assignee_id as assigneeId, ai_handling as aiHandling FROM conversations WHERE id=?1 AND workspace_id=?2",
   )
     .bind(id, workspaceId)
-    .first<{ status: string; assigneeId: string | null }>();
+    .first<{ status: string; assigneeId: string | null; aiHandling: number }>();
   if (!current) throw ctxErr.conversation.notFound();
 
   if (patch.assigneeId) {
@@ -299,6 +303,14 @@ conversationsApi.patch("/conversations/:id", validate(PatchConversationBody, "js
     binds.push(patch.snoozedUntil);
     sets.push(`snoozed_until=?${binds.length}`);
   }
+  // Reassigning or resolving is a human intervention — it always ends AI handling and clears
+  // the escalation flag (the conversation is no longer waiting on anyone).
+  if (
+    (patch.assigneeId !== undefined && patch.assigneeId !== current.assigneeId) ||
+    patch.status === CONVERSATION.STATUS.RESOLVED
+  ) {
+    sets.push("ai_handling=0", "ai_escalated=0");
+  }
 
   if (sets.length > 0) {
     binds.push(ts);
@@ -315,6 +327,94 @@ conversationsApi.patch("/conversations/:id", validate(PatchConversationBody, "js
     await sendMessage(c.env, { workspaceId, conversationId: id, senderType: "SYSTEM", senderId: null, bodyText: text });
   }
   if (sets.length > 0) {
+    await notifyConversationUpdated(c.env, workspaceId, id);
+  }
+
+  const updated = await c.env.DB.prepare(
+    `SELECT ${CONVERSATION_LIST_COLUMNS} FROM conversations c JOIN contacts ct ON ct.id = c.contact_id WHERE c.id=?1`,
+  )
+    .bind(id)
+    .first<ConversationListRow>();
+  return ok(c, { conversation: updated ? toListItem(updated) : null });
+});
+
+/** Hand the conversation to the AI. Only the current assignee can delegate — they stay the
+ * assignee (they're the human the AI escalates back to). */
+conversationsApi.post("/conversations/:id/ai/delegate", async (c) => {
+  const { workspaceId } = c.get("member");
+  const userId = c.get("userId");
+  const id = c.req.param("id");
+  if (!id) throw ctxErr.conversation.notFound();
+
+  const current = await c.env.DB.prepare(
+    "SELECT status, assignee_id as assigneeId, ai_handling as aiHandling FROM conversations WHERE id=?1 AND workspace_id=?2",
+  )
+    .bind(id, workspaceId)
+    .first<{ status: string; assigneeId: string | null; aiHandling: number }>();
+  if (!current) throw ctxErr.conversation.notFound();
+  if (current.status === CONVERSATION.STATUS.RESOLVED)
+    throw ctxErr.ai.notAssignee({ msg: "Reopen the conversation before delegating to AI" });
+  if (current.assigneeId !== userId) throw ctxErr.ai.notAssignee();
+
+  if (!current.aiHandling) {
+    await c.env.DB.prepare(
+      "UPDATE conversations SET ai_handling=1, ai_escalated=0, updated_at=?1 WHERE id=?2 AND workspace_id=?3",
+    )
+      .bind(now(), id, workspaceId)
+      .run();
+    await sendMessage(c.env, {
+      workspaceId,
+      conversationId: id,
+      senderType: "SYSTEM",
+      senderId: null,
+      bodyText: "Delegated to AI",
+    });
+    await notifyConversationUpdated(c.env, workspaceId, id);
+    // First AI turn runs after the response — the delegating agent sees the reply arrive live.
+    c.executionCtx.waitUntil(runAiTurn(c.env, workspaceId, id, { firstTurn: true }));
+  }
+
+  const updated = await c.env.DB.prepare(
+    `SELECT ${CONVERSATION_LIST_COLUMNS} FROM conversations c JOIN contacts ct ON ct.id = c.contact_id WHERE c.id=?1`,
+  )
+    .bind(id)
+    .first<ConversationListRow>();
+  return ok(c, { conversation: updated ? toListItem(updated) : null });
+});
+
+/** Take the conversation back from the AI (also clears the escalated flag). */
+conversationsApi.post("/conversations/:id/ai/takeover", async (c) => {
+  const { workspaceId } = c.get("member");
+  const userId = c.get("userId");
+  const id = c.req.param("id");
+  if (!id) throw ctxErr.conversation.notFound();
+
+  const current = await c.env.DB.prepare(
+    "SELECT assignee_id as assigneeId, ai_handling as aiHandling, ai_escalated as aiEscalated FROM conversations WHERE id=?1 AND workspace_id=?2",
+  )
+    .bind(id, workspaceId)
+    .first<{ assigneeId: string | null; aiHandling: number; aiEscalated: number }>();
+  if (!current) throw ctxErr.conversation.notFound();
+  if (current.assigneeId !== userId) throw ctxErr.ai.notAssignee();
+
+  if (current.aiHandling || current.aiEscalated) {
+    await c.env.DB.prepare(
+      "UPDATE conversations SET ai_handling=0, ai_escalated=0, updated_at=?1 WHERE id=?2 AND workspace_id=?3",
+    )
+      .bind(now(), id, workspaceId)
+      .run();
+    if (current.aiHandling) {
+      const me = await c.env.DB.prepare("SELECT name, email FROM users WHERE id=?1")
+        .bind(userId)
+        .first<{ name: string | null; email: string | null }>();
+      await sendMessage(c.env, {
+        workspaceId,
+        conversationId: id,
+        senderType: "SYSTEM",
+        senderId: null,
+        bodyText: `${me?.name ?? me?.email ?? "An agent"} took over from AI`,
+      });
+    }
     await notifyConversationUpdated(c.env, workspaceId, id);
   }
 

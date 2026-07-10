@@ -5,6 +5,7 @@ import { ContactPanel } from "./ContactPanel";
 import { SummaryPanel } from "./SummaryPanel";
 import { Composer, type DraftSuggestion } from "./Composer";
 import { Ticks, TypingDots, type TickState } from "../components/MessageStatus";
+import { Linkified } from "../lib/linkify";
 import type { Conversation, ConversationSnapshot, Member, Message, WsEvent } from "../lib/types";
 
 function formatTime(ts: number): string {
@@ -202,6 +203,22 @@ export function ConversationView({
     }
   }, [wsId, conversationId, showError]);
 
+  const handleAiAction = useCallback(
+    async (action: "delegate" | "takeover") => {
+      try {
+        const { conversation: updated } = await api<{ conversation: Conversation }>(
+          `/api/v1/ws/${wsId}/conversations/${conversationId}/ai/${action}`,
+          { method: "POST" },
+        );
+        setConversation(updated);
+        onConversationChanged(updated);
+      } catch (err) {
+        showError(err instanceof ApiError ? err.message : "Something went wrong");
+      }
+    },
+    [wsId, conversationId, onConversationChanged, showError],
+  );
+
   const handleFixGrammar = useCallback(
     async (text: string): Promise<string> => {
       try {
@@ -245,6 +262,8 @@ export function ConversationView({
     conversation.assigneeId !== currentUserId;
   const lockOwner = members.find((m) => m.userId === conversation.assigneeId);
   const lockOwnerName = lockOwner?.name ?? lockOwner?.email ?? "another agent";
+  const aiHandling = !!conversation.aiHandling;
+  const isAssignee = conversation.assigneeId === currentUserId;
 
   return (
     <div className="flex flex-1 min-w-0">
@@ -275,6 +294,30 @@ export function ConversationView({
                 </option>
               ))}
             </select>
+            {conversation.status !== "RESOLVED" &&
+              (aiHandling ? (
+                <button
+                  onClick={() => handleAiAction("takeover")}
+                  disabled={!isAssignee}
+                  title={isAssignee ? "Stop the AI and reply yourself" : "Only the assignee can take over"}
+                  className="rounded-md bg-violet-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                >
+                  Take over from AI
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleAiAction("delegate")}
+                  disabled={!isAssignee}
+                  title={
+                    isAssignee
+                      ? "Let AI reply to the customer using your knowledge base; it escalates back to you when stuck"
+                      : "Assign the conversation to yourself first"
+                  }
+                  className="rounded-md border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+                >
+                  ✨ Delegate to AI
+                </button>
+              ))}
             {conversation.status !== "RESOLVED" && (
               <div className="group relative">
                 <button className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50">
@@ -317,20 +360,35 @@ export function ConversationView({
               {m.senderType === "SYSTEM" ? (
                 <div className="text-center text-xs text-slate-400">{m.bodyText}</div>
               ) : (
-                <div className={`flex ${m.senderType === "AGENT" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`flex ${m.senderType === "AGENT" || m.senderType === "AI" ? "justify-end" : "justify-start"}`}
+                >
                   <div
                     className={`max-w-[70%] rounded-2xl px-3.5 py-2 text-sm ${
-                      m.senderType === "AGENT" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-900"
+                      m.senderType === "AGENT"
+                        ? "bg-indigo-600 text-white"
+                        : m.senderType === "AI"
+                          ? "bg-violet-600 text-white"
+                          : "bg-slate-100 text-slate-900"
                     }`}
                   >
-                    <div className="whitespace-pre-wrap break-words">{m.bodyText}</div>
+                    <div className="whitespace-pre-wrap break-words">
+                      <Linkified text={m.bodyText} />
+                    </div>
                     <div
                       className={`mt-1 flex items-center gap-1 text-[10px] ${
-                        m.senderType === "AGENT" ? "justify-end text-indigo-200" : "text-slate-400"
+                        m.senderType === "AGENT"
+                          ? "justify-end text-indigo-200"
+                          : m.senderType === "AI"
+                            ? "justify-end text-violet-200"
+                            : "text-slate-400"
                       }`}
                     >
+                      {m.senderType === "AI" && <span className="font-medium">✨ AI</span>}
                       <span>{formatTime(m.createdAt)}</span>
-                      {isChat && m.senderType === "AGENT" && <Ticks state={tickState(m)} onColor />}
+                      {isChat && (m.senderType === "AGENT" || m.senderType === "AI") && (
+                        <Ticks state={tickState(m)} onColor />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -347,18 +405,31 @@ export function ConversationView({
           {!isChat && seen && <div className="text-right text-[10px] text-slate-400">Seen</div>}
         </div>
 
-        {lockedToOther && (
+        {lockedToOther && !aiHandling && (
           <div className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
             Assigned to <span className="font-medium">{lockOwnerName}</span>. Reassign it to yourself to reply.
           </div>
         )}
+        {aiHandling && (
+          <div className="border-t border-violet-200 bg-violet-50 px-4 py-2 text-xs text-violet-800">
+            ✨ <span className="font-medium">AI is handling this conversation</span> — it replies to the customer
+            automatically and escalates back to {isAssignee ? "you" : lockOwnerName} when stuck.
+            {isAssignee && ' Click "Take over from AI" to reply yourself.'}
+          </div>
+        )}
         <Composer
           onSend={handleSend}
-          onTyping={isChat && !lockedToOther ? handleTyping : undefined}
+          onTyping={isChat && !lockedToOther && !aiHandling ? handleTyping : undefined}
           onSuggest={handleSuggest}
           onFixGrammar={handleFixGrammar}
-          disabled={lockedToOther}
-          placeholder={lockedToOther ? "Reassign to yourself to reply…" : "Reply…"}
+          disabled={lockedToOther || aiHandling}
+          placeholder={
+            aiHandling
+              ? "AI is handling — take over to reply…"
+              : lockedToOther
+                ? "Reassign to yourself to reply…"
+                : "Reply…"
+          }
         />
       </div>
 

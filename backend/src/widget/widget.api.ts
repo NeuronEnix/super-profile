@@ -9,6 +9,7 @@ import { now, uuidv7 } from "../common/id";
 import { RATE_LIMIT } from "../common/const";
 import { signWidgetToken } from "../auth/token";
 import { sendMessage, markRead } from "../realtime/hub";
+import { triggerAiTurn } from "../ai/handler";
 import { resolveContact } from "../contacts/contacts.service";
 import { searchArticles } from "../kb/search";
 import type { HonoEnv } from "../common/hono-env";
@@ -157,6 +158,8 @@ widgetApi.post("/conversations/:id/messages", validate(PostMessageBody, "json"),
     senderId: userId,
     bodyText: body,
   });
+  // Delegated conversation: the AI replies after this response returns, arriving over the WS.
+  triggerAiTurn(c.env, (p) => c.executionCtx.waitUntil(p), out);
   return ok(c, out);
 });
 

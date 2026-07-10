@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { widgetApi } from "./widgetApi";
 import { Composer } from "../inbox/Composer";
 import { Ticks, TypingDots, type TickState } from "../components/MessageStatus";
+import { Linkified } from "../lib/linkify";
 import type { ConversationSnapshot, Message, WsEvent } from "../lib/types";
 
 function formatTime(ts: number): string {
@@ -76,7 +77,7 @@ export function TicketView({
         setConversation(event.conversation);
         onConversationChanged(event.conversation);
         setMessages((prev) => (prev.some((m) => m.id === event.message.id) ? prev : [...prev, event.message]));
-        if (event.message.senderType === "AGENT") {
+        if (event.message.senderType === "AGENT" || event.message.senderType === "AI") {
           setAgentTyping(false); // they sent — no longer typing
           if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
           widgetApi(`/api/v1/widget/conversations/${conversationId}/read`, { method: "POST" }).catch(() => {});
@@ -149,7 +150,9 @@ export function TicketView({
                   }`}
                   style={m.senderType === "CONTACT" ? { backgroundColor: widgetColor } : undefined}
                 >
-                  <div className="whitespace-pre-wrap break-words">{m.bodyText}</div>
+                  <div className="whitespace-pre-wrap break-words">
+                    <Linkified text={m.bodyText} />
+                  </div>
                   <div
                     className={`mt-0.5 flex items-center gap-1 text-[9px] ${
                       m.senderType === "CONTACT" ? "justify-end text-white/70" : "text-slate-400"

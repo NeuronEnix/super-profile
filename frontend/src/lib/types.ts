@@ -1,7 +1,7 @@
 export type Role = "ADMIN" | "AGENT";
 export type Channel = "CHAT" | "EMAIL";
 export type ConversationStatus = "OPEN" | "SNOOZED" | "RESOLVED";
-export type SenderType = "CONTACT" | "AGENT" | "SYSTEM";
+export type SenderType = "CONTACT" | "AGENT" | "SYSTEM" | "AI";
 
 export type User = { id: string; email: string | null; name: string | null };
 
@@ -39,6 +39,8 @@ export type Conversation = {
   lastMessageAt: number;
   lastMessagePreview: string;
   messageCount: number;
+  aiHandling: number;
+  aiEscalated: number;
   agentLastReadAt: number | null;
   contactLastReadAt: number | null;
   createdAt: number;

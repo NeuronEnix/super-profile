@@ -14,7 +14,7 @@ export type MessageIn = {
   workspaceId: string;
   conversationId?: string;
   newConversation?: { contactId: string; channel: "CHAT" | "EMAIL"; subject: string | null };
-  senderType: "CONTACT" | "AGENT" | "SYSTEM";
+  senderType: "CONTACT" | "AGENT" | "SYSTEM" | "AI";
   senderId: string | null;
   bodyText: string;
   bodyHtml?: string | null;
@@ -36,6 +36,8 @@ export type ConversationRow = {
   messageCount: number;
   aiSummary: string | null;
   aiSummaryMsgCount: number;
+  aiHandling: number;
+  aiEscalated: number;
   contactLastReadAt: number | null;
   agentLastReadAt: number | null;
   createdAt: number;
@@ -46,7 +48,7 @@ export type MessageRow = {
   id: string;
   conversationId: string;
   workspaceId: string;
-  senderType: "CONTACT" | "AGENT" | "SYSTEM";
+  senderType: "CONTACT" | "AGENT" | "SYSTEM" | "AI";
   senderId: string | null;
   bodyText: string;
   bodyHtml: string | null;
@@ -110,6 +112,7 @@ const CONVERSATION_COLUMNS = `
   assignee_id as assigneeId, subject, snoozed_until as snoozedUntil,
   last_message_at as lastMessageAt, last_message_preview as lastMessagePreview,
   message_count as messageCount, ai_summary as aiSummary, ai_summary_msg_count as aiSummaryMsgCount,
+  ai_handling as aiHandling, ai_escalated as aiEscalated,
   contact_last_read_at as contactLastReadAt, agent_last_read_at as agentLastReadAt,
   created_at as createdAt, updated_at as updatedAt
 `;
@@ -348,6 +351,12 @@ export class WorkspaceHub {
       throw ctxErr.conversation.assignedToOther();
     }
 
+    // While AI handles a conversation the composer is locked for every human — the assignee
+    // included — so the AI and the agent can't talk over each other. Take over first.
+    if (input.senderType === "AGENT" && current.aiHandling) {
+      throw ctxErr.ai.handlingLocked();
+    }
+
     const messageId = uuidv7();
     const reopen = shouldReopen(input.senderType, current.status);
     const nextStatus = reopen ? CONVERSATION.STATUS.OPEN : current.status;
@@ -384,6 +393,7 @@ export class WorkspaceHub {
                agent_last_read_at=CASE WHEN ?5='AGENT' THEN ?1 ELSE agent_last_read_at END,
                contact_last_read_at=CASE WHEN ?5='CONTACT' THEN ?1 ELSE contact_last_read_at END,
                assignee_id=CASE WHEN ?5='AGENT' AND assignee_id IS NULL THEN ?6 ELSE assignee_id END,
+               ai_escalated=CASE WHEN ?5='AGENT' THEN 0 ELSE ai_escalated END,
                updated_at=?1
            WHERE id=?4`,
         )

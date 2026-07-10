@@ -106,6 +106,18 @@ export namespace ctxErr {
   export const ai = {
     unavailable: (e?: TResErr) =>
       new CtxError({ name: "AI_UNAVAILABLE", msg: "AI is unavailable right now, try again shortly", ...e }),
+    notAssignee: (e?: TResErr) =>
+      new CtxError({
+        name: "AI_NOT_ASSIGNEE",
+        msg: "Only the assigned agent can do this — assign the conversation to yourself first",
+        ...e,
+      }),
+    handlingLocked: (e?: TResErr) =>
+      new CtxError({
+        name: "AI_HANDLING_LOCKED",
+        msg: "AI is handling this conversation. Take over to reply yourself.",
+        ...e,
+      }),
   };
 
   export const domain = {

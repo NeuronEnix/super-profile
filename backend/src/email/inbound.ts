@@ -2,6 +2,7 @@ import { now } from "../common/id";
 import { upsertUserByEmail } from "../users/users.service";
 import { resolveContact } from "../contacts/contacts.service";
 import { sendMessage, type MessageOut } from "../realtime/hub";
+import { runAiTurn } from "../ai/handler";
 import type { Env } from "../types";
 
 export function parseInboundAddress(
@@ -153,7 +154,7 @@ export async function ingestInboundEmail(env: Env, parsed: InboundEmailInput): P
     },
   );
 
-  return sendMessage(env, {
+  const out = await sendMessage(env, {
     workspaceId: workspace.id,
     ...(conversationId
       ? { conversationId }
@@ -171,4 +172,9 @@ export async function ingestInboundEmail(env: Env, parsed: InboundEmailInput): P
     emailMessageId: parsed.messageId,
     emailInReplyTo: parsed.inReplyTo,
   });
+  // Delegated conversation: run the AI turn inline — the email handler has no client waiting.
+  if (out.conversation.aiHandling) {
+    await runAiTurn(env, workspace.id, out.conversation.id);
+  }
+  return out;
 }

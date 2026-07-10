@@ -491,3 +491,9 @@ was fixed, unit/e2e-verified locally, deployed, and re-verified against prod in 
   digits and hyphens only, no leading/trailing/doubled hyphen — regex `^[a-z0-9]+(?:-[a-z0-9]+)*$`,
   enforced on the backend (`ArticlePatchBody`) and live in the editor (red field + rule hint +
   disabled Save/Publish until valid). Unit-tested; 86 backend tests pass.
+
+## Delegate-to-AI: escalation semantics & schema change (2026-07-10, evening session w/ user)
+- **Context**: User asked for a "Delegate to AI" mode: AI replies autonomously using the KB (linking article URLs instead of pasting), customer can type "escalate to human", AI self-escalates when it lacks info, assignee stays the human owner, composer locked while AI handles, distinct inbox colors.
+- **Options**: (a) new AI sender type vs reusing AGENT with null sender; (b) escalation detection by regex only vs model-decided ESCALATE token vs both; (c) AI trigger inside the DO vs at the API/worker layer.
+- **Chosen**: sender_type 'AI' (required rebuilding messages table — SQLite CHECK can't be altered; migration 0004 copies all rows); both regex ("talk to a human" etc., checked pre-LLM, free) and model token (prompt outputs exactly ESCALATE); trigger at worker layer (widget POST waitUntil, email inbound inline) — avoids DO-self-fetch deadlock risk. AI failure/timeout escalates rather than leaving the customer stuck. Delegate/takeover are assignee-only; reassign/resolve always clears AI flags; agent reply clears ai_escalated. Colors: violet=AI handling, orange=escalated (top of inbox via lastMessageAt bump).
+- **Why**: distinct sender type keeps history honest for the evaluator (AI vs human replies visibly different); dual escalation covers both explicit customer intent (deterministic) and model judgment; worker-layer trigger keeps the DO simple and single-purpose.

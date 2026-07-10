@@ -20,7 +20,8 @@ function relativeTime(ts: number): string {
 
 /**
  * The colored left rail + capsule encode a conversation's state at a glance:
- * green = closed (resolved), yellow = in progress (assigned — capsule names the agent),
+ * green = closed (resolved), violet = AI is handling it, orange = AI escalated it back to the
+ * assignee (needs their attention), yellow = in progress (assigned — capsule names the agent),
  * red = unassigned (needs attention).
  */
 function statusAccent(
@@ -30,6 +31,12 @@ function statusAccent(
 ): { barColor: string; capsule: { text: string; className: string } } {
   if (c.status === "RESOLVED") {
     return { barColor: "#10b981", capsule: { text: "Closed", className: "bg-emerald-100 text-emerald-700" } };
+  }
+  if (c.aiHandling) {
+    return { barColor: "#8b5cf6", capsule: { text: "✨ AI handling", className: "bg-violet-100 text-violet-700" } };
+  }
+  if (c.aiEscalated) {
+    return { barColor: "#f97316", capsule: { text: "Escalated", className: "bg-orange-100 text-orange-700" } };
   }
   if (c.assigneeId) {
     const assignee = members.find((m) => m.userId === c.assigneeId);

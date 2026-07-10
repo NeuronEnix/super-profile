@@ -4,6 +4,13 @@ export const CONVERSATION = { STATUS: { OPEN: "OPEN", SNOOZED: "SNOOZED", RESOLV
 export const MESSAGE = { SENDER_TYPE: { CONTACT: "CONTACT", AGENT: "AGENT", SYSTEM: "SYSTEM", AI: "AI" } } as const;
 export const ARTICLE = { STATUS: { DRAFT: "DRAFT", PUBLISHED: "PUBLISHED" } } as const;
 export const DOMAIN = { STATUS: { PENDING_DNS: "PENDING_DNS", ACTIVE: "ACTIVE", FAILED: "FAILED" } } as const;
+export const KB_SYNC = { STATUS: { RUNNING: "RUNNING", DONE: "DONE", FAILED: "FAILED" },
+  PAGE_CAP: 15, ARTICLE_CAP: 10, BATCH_SIZE: 5, FETCH_TIMEOUT_MS: 10_000,
+  MAX_HTML_BYTES: 2_000_000, MIN_CONTENT_CHARS: 80, BLOCKED_STREAK_LIMIT: 3,
+  STALE_RUNNING_MS: 15 * 60 * 1000,
+  USER_AGENT: "SuperProfileBot/1.0 (+https://sp.hyugorix.com)",
+  BLOCKED_MSG: "This site blocks automated access (bot protection). Try a different docs URL." } as const;
+export const CONTACT_EVENT = { TYPE: { PAGE_VIEW: "PAGE_VIEW" } } as const;
 export const AUTH = { ACCESS_TOKEN_TTL_SEC: 30 * 60, REFRESH_TOKEN_TTL_SEC: 30 * 24 * 3600,
   MAGIC_LINK_TTL_SEC: 10 * 60, INVITE_TTL_SEC: 7 * 24 * 3600, WIDGET_TOKEN_TTL_SEC: 7 * 24 * 3600,
   REFRESH_COOKIE: "sp_refresh", REFRESH_COOKIE_PATH: "/api/v1/auth/refresh" } as const;
@@ -11,7 +18,8 @@ export const AI_CONF = { MODEL: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   SUMMARY_WINDOW: 30, TIMEOUT_MS: 10_000, MAX_TOKENS: 300,
   DRAFT: { WINDOW: 20, MAX_TOKENS: 400, KB_TOP_K: 3, KB_SNIPPET_CHARS: 1500, QUERY_CHARS: 200 },
   GRAMMAR: { MAX_INPUT_CHARS: 4000, MAX_TOKENS: 1200 },
-  HANDLER: { WINDOW: 20, MAX_TOKENS: 350, KB_TOP_K: 3, KB_SNIPPET_CHARS: 1200 } } as const;
+  HANDLER: { WINDOW: 20, MAX_TOKENS: 350, KB_TOP_K: 3, KB_SNIPPET_CHARS: 1200 },
+  DIGEST: { MAX_ARTICLES: 60, PER_ARTICLE_EXCERPT: 200, MAX_TOKENS: 900, CHAR_CAP: 4_000 } } as const;
 export const FLAG = { RATE_LIMIT_ENABLED: false } as const;
 export const RATE_LIMIT = { MAGIC_LINK: { PER_EMAIL: 3, PER_IP: 10, WINDOW_SEC: 600 },
   WIDGET_MSG: { PER_USER: 60, WINDOW_SEC: 60 } } as const;

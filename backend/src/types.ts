@@ -5,6 +5,7 @@ export type Env = {
   ATTACHMENTS: R2Bucket;
   WORKSPACE_HUB: DurableObjectNamespace;
   RATE_LIMITER: DurableObjectNamespace;
+  KB_SYNC: DurableObjectNamespace;
   APP_URL: string;
   INBOUND_DOMAIN: string;
   SEND_DOMAIN: string;
@@ -15,4 +16,5 @@ export type Env = {
   WIDGET_TOKEN_SECRET: string;
   EMAIL_INBOUND_SECRET: string;
   DEBUG_AUTH_SECRET: string;
+  KB_SYNC_COOLDOWN_MIN?: string;
 };

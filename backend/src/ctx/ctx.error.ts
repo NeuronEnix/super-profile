@@ -118,6 +118,25 @@ export namespace ctxErr {
       new CtxError({ name: "DOMAIN_VERIFICATION_FAILED", msg: "Domain verification failed", ...e }),
   };
 
+  export const kbSync = {
+    invalidUrl: (e?: TResErr) =>
+      new CtxError({ name: "KB_SYNC_INVALID_URL", msg: "Enter a valid docs site URL (e.g. docs.yourcompany.com)", ...e }),
+    cooldown: (e?: TResErr) =>
+      new CtxError({ name: "KB_SYNC_COOLDOWN", msg: "You can sync again later", ...e }),
+    alreadyRunning: (e?: TResErr) =>
+      new CtxError({ name: "KB_SYNC_ALREADY_RUNNING", msg: "A sync is already in progress", ...e }),
+  };
+
+  export const canned = {
+    notFound: (e?: TResErr) =>
+      new CtxError({ name: "CANNED_NOT_FOUND", msg: "Canned response not found", ...e }),
+  };
+
+  export const contact = {
+    notFound: (e?: TResErr) =>
+      new CtxError({ name: "CONTACT_NOT_FOUND", msg: "Contact not found", ...e }),
+  };
+
   export const ai = {
     unavailable: (e?: TResErr) =>
       new CtxError({ name: "AI_UNAVAILABLE", msg: "AI is unavailable right now, try again shortly", ...e }),

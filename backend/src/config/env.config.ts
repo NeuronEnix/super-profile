@@ -11,6 +11,7 @@ export type Config = {
   WIDGET_TOKEN_SECRET: string;
   EMAIL_INBOUND_SECRET: string;
   DEBUG_AUTH_SECRET: string;
+  KB_SYNC_COOLDOWN_MIN: number;
 };
 
 export function getConfig(env: Env): Config {
@@ -25,5 +26,6 @@ export function getConfig(env: Env): Config {
     WIDGET_TOKEN_SECRET: env.WIDGET_TOKEN_SECRET,
     EMAIL_INBOUND_SECRET: env.EMAIL_INBOUND_SECRET,
     DEBUG_AUTH_SECRET: env.DEBUG_AUTH_SECRET,
+    KB_SYNC_COOLDOWN_MIN: Number(env.KB_SYNC_COOLDOWN_MIN ?? "1440") || 1440,
   };
 }

@@ -10,9 +10,13 @@
   "d1_databases": [{ "binding": "DB", "database_name": "super-profile", "database_id": "04dbac7e-6f9d-438c-a379-b64b90b82734" }],
   "durable_objects": { "bindings": [
     { "name": "WORKSPACE_HUB", "class_name": "WorkspaceHub" },
-    { "name": "RATE_LIMITER", "class_name": "RateLimiter" }
+    { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
+    { "name": "KB_SYNC", "class_name": "KbSyncRunner" }
   ]},
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WorkspaceHub", "RateLimiter"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["WorkspaceHub", "RateLimiter"] },
+    { "tag": "v2", "new_sqlite_classes": ["KbSyncRunner"] }
+  ],
   "ai": { "binding": "AI" },
   "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "super-profile-attachments" }],
   // Vanity domain: "SP" in the hostname (product is still shown as "SuperProfile" in the UI/emails).
@@ -28,5 +32,6 @@
     { "pattern": "*/*", "zone_name": "hyugorix.com" }
   ],
   "vars": { "APP_URL": "https://sp.hyugorix.com", "INBOUND_DOMAIN": "inbox.hyugorix.com",
-            "SEND_DOMAIN": "notifications.hyugorix.com", "ENVIRONMENT": "prod" }
+            "SEND_DOMAIN": "notifications.hyugorix.com", "ENVIRONMENT": "prod",
+            "KB_SYNC_COOLDOWN_MIN": "1440" }
 }

@@ -49,7 +49,7 @@
 - `Env.KB_SYNC: DurableObjectNamespace`
 - Tables `kb_sync_sources`, columns `kb_articles.source_url`, `workspaces.kb_digest`, `workspaces.kb_digest_at`
 
-- [ ] **Step 1: Write migration `backend/migrations/0005_kb_sync.sql`**
+- [x] **Step 1: Write migration `backend/migrations/0005_kb_sync.sql`**
 
 ```sql
 CREATE TABLE kb_sync_sources (
@@ -74,12 +74,12 @@ ALTER TABLE workspaces ADD COLUMN kb_digest TEXT;
 ALTER TABLE workspaces ADD COLUMN kb_digest_at INTEGER;
 ```
 
-- [ ] **Step 2: Apply locally and verify**
+- [x] **Step 2: Apply locally and verify**
 
 Run: `cd backend && npx wrangler d1 migrations apply super-profile --local --yes`
 Expected: `0005_kb_sync.sql` listed as applied, no error.
 
-- [ ] **Step 3: Add consts** — in `backend/src/common/const.ts`, after the `DOMAIN` line add:
+- [x] **Step 3: Add consts** — in `backend/src/common/const.ts`, after the `DOMAIN` line add:
 
 ```ts
 export const KB_SYNC = { STATUS: { RUNNING: "RUNNING", DONE: "DONE", FAILED: "FAILED" },
@@ -97,9 +97,9 @@ and inside `AI_CONF` (after the `HANDLER` line, before ` } as const`):
   DIGEST: { MAX_ARTICLES: 60, PER_ARTICLE_EXCERPT: 200, MAX_TOKENS: 900, CHAR_CAP: 4_000 },
 ```
 
-- [ ] **Step 4: Config + Env.** In `backend/src/types.ts` add to `Env`: `KB_SYNC: DurableObjectNamespace;` and `KB_SYNC_COOLDOWN_MIN?: string;`. In `backend/src/config/env.config.ts` add to `Config`: `KB_SYNC_COOLDOWN_MIN: number;` and to the returned object: `KB_SYNC_COOLDOWN_MIN: Number(env.KB_SYNC_COOLDOWN_MIN ?? "1440") || 1440,`.
+- [x] **Step 4: Config + Env.** In `backend/src/types.ts` add to `Env`: `KB_SYNC: DurableObjectNamespace;` and `KB_SYNC_COOLDOWN_MIN?: string;`. In `backend/src/config/env.config.ts` add to `Config`: `KB_SYNC_COOLDOWN_MIN: number;` and to the returned object: `KB_SYNC_COOLDOWN_MIN: Number(env.KB_SYNC_COOLDOWN_MIN ?? "1440") || 1440,`.
 
-- [ ] **Step 5: Error namespaces.** In `backend/src/ctx/ctx.error.ts`, after the `domain` namespace add:
+- [x] **Step 5: Error namespaces.** In `backend/src/ctx/ctx.error.ts`, after the `domain` namespace add:
 
 ```ts
   export const kbSync = {
@@ -122,9 +122,9 @@ and inside `AI_CONF` (after the `HANDLER` line, before ` } as const`):
   };
 ```
 
-- [ ] **Step 6: wrangler.jsonc.** Add to `durable_objects.bindings`: `{ "name": "KB_SYNC", "class_name": "KbSyncRunner" }`. Append to `migrations`: `{ "tag": "v2", "new_sqlite_classes": ["KbSyncRunner"] }`. Add to `vars`: `"KB_SYNC_COOLDOWN_MIN": "1440"`. Append `KB_SYNC_COOLDOWN_MIN=1` to `backend/.dev.vars` (file is gitignored).
+- [x] **Step 6: wrangler.jsonc.** Add to `durable_objects.bindings`: `{ "name": "KB_SYNC", "class_name": "KbSyncRunner" }`. Append to `migrations`: `{ "tag": "v2", "new_sqlite_classes": ["KbSyncRunner"] }`. Add to `vars`: `"KB_SYNC_COOLDOWN_MIN": "1440"`. Append `KB_SYNC_COOLDOWN_MIN=1` to `backend/.dev.vars` (file is gitignored).
 
-- [ ] **Step 7: Green check.** Run: `cd backend && pnpm test` — all suites pass (110 tests, nothing new yet). NOTE: the worker won't typecheck/deploy until Task 4 exports `KbSyncRunner`; that's expected — do NOT deploy in this task.
+- [x] **Step 7: Green check.** Run: `cd backend && pnpm test` — all suites pass (110 tests, nothing new yet). NOTE: the worker won't typecheck/deploy until Task 4 exports `KbSyncRunner`; that's expected — do NOT deploy in this task.
 
 - [ ] **Step 8: Commit** (orchestrator): `git add -A && git commit -m "feat(kb-sync): schema, consts, config and error scaffolding"`
 

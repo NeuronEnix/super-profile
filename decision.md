@@ -497,3 +497,38 @@ was fixed, unit/e2e-verified locally, deployed, and re-verified against prod in 
 - **Options**: (a) new AI sender type vs reusing AGENT with null sender; (b) escalation detection by regex only vs model-decided ESCALATE token vs both; (c) AI trigger inside the DO vs at the API/worker layer.
 - **Chosen**: sender_type 'AI' (required rebuilding messages table — SQLite CHECK can't be altered; migration 0004 copies all rows); both regex ("talk to a human" etc., checked pre-LLM, free) and model token (prompt outputs exactly ESCALATE); trigger at worker layer (widget POST waitUntil, email inbound inline) — avoids DO-self-fetch deadlock risk. AI failure/timeout escalates rather than leaving the customer stuck. Delegate/takeover are assignee-only; reassign/resolve always clears AI flags; agent reply clears ai_escalated. Colors: violet=AI handling, orange=escalated (top of inbox via lastMessageAt bump).
 - **Why**: distinct sender type keeps history honest for the evaluator (AI vs human replies visibly different); dual escalation covers both explicit customer intent (deterministic) and model judgment; worker-layer trigger keeps the DO simple and single-purpose.
+
+## Custom domains: real Cloudflare-for-SaaS wiring (docs.kaushikrb.com)
+
+**Context:** User enabled Cloudflare for SaaS (free ≤100 hostnames) and asked for the real
+thing: serve the ban-gera public KB on docs.kaushikrb.com, with a proper landing page
+(collection sections + article cards). Both zones live in the same CF account, but we wired it
+the way a real customer would experience it (CNAME + validation records on the client zone).
+
+**How it works:**
+- `fallback.hyugorix.com` AAAA `100::` proxied = originless fallback origin (CF's documented
+  worker-as-origin pattern); custom hostname `docs.kaushikrb.com` added under SSL/TLS → Custom
+  Hostnames on hyugorix.com.
+- Worker route `*/*` on the hyugorix zone (wrangler.jsonc) — the only route form that catches
+  custom-hostname traffic. The worker inspects Host: app hosts → normal app; hostnames found
+  ACTIVE in `custom_domains` → public KB only (public API + SPA at `/` and `/a/:slug`, all other
+  /api paths 404); anything else → `fetch(request)` passthrough so the proxied apex S3 site
+  keeps working (verified before and after).
+- Client-side records on kaushikrb.com: `docs` CNAME → fallback.hyugorix.com (**DNS only** —
+  grey, to avoid O2O), plus `_cf-custom-hostname.docs` TXT for hostname pre-validation.
+- SPA boots in KB-only mode on non-app hostnames; workspace resolved once via
+  `GET /api/v1/public/kb/host` (Host-header lookup).
+
+**Gotchas hit (worth interview airtime):**
+1. CF's CNAME pre-validation failed ("custom hostname does not CNAME to this zone") even though
+   the CNAME was publicly resolvable — the target domain being itself a CF zone confuses the
+   chain check. Fix: the `_cf-custom-hostname.<host>` TXT record → Hostname status Active.
+2. Cert DCV (HTTP) lags, but HTTPS worked immediately anyway: kaushikrb.com's own universal
+   `*.kaushikrb.com` cert covers the SNI at the same edge. Dedicated GTS cert issues in the
+   background.
+3. Chrome Auto Dark Mode repainted the light KB page on the unfamiliar domain; fixed with
+   `<meta name="color-scheme" content="only light">`.
+
+**Deliberately not built (scope):** settings UI for domain self-service + DoH TXT verify from
+plan Task 12 — the mapping row is inserted via SQL for the demo workspace; the product story
+and API surface (`custom_domains` table, status lifecycle) are in place.

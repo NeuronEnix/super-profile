@@ -16,13 +16,13 @@ export function stripMarkdown(md: string): string {
 /**
  * Builds an OR-of-prefixes FTS5 query so natural-language questions ("how do I reset my
  * password") surface articles matching any of the significant words, ranked by bm25 — a strict
- * phrase match would almost never hit real article text.
+ * phrase match would almost never hit real article text. Tokens are reduced to alphanumerics:
+ * any punctuation reaching MATCH ("refund?", "$49") is an FTS5 syntax error.
  */
-function ftsQuery(q: string): string | null {
+export function ftsQuery(q: string): string | null {
   const terms = q
-    .replace(/["*]/g, "")
-    .trim()
-    .split(/\s+/)
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
     .filter((t) => t.length > 0);
   if (terms.length === 0) return null;
   return terms.map((t) => `${t}*`).join(" OR ");

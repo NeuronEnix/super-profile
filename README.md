@@ -4,8 +4,8 @@ A production-deployed Intercom clone — live chat widget, unified inbox, email 
 knowledge base, and AI conversation summaries — built on Cloudflare Workers, D1, Durable Objects,
 and Workers AI. Built in ~48 hours as a Staff Engineer take-home assignment.
 
-**Live:** https://super-profile.kaushikrb909.workers.dev
-**Widget demo:** https://super-profile.kaushikrb909.workers.dev/demo.html
+**Live:** https://sp.hyugorix.com
+**Widget demo:** https://sp.hyugorix.com/demo.html
 
 Jump to: [Try it now](#try-it-now-evaluator-quick-start) · [Architecture](#architecture) ·
 [Schema](#database-schema) · [Real-time design](#real-time-design-durable-objects) ·
@@ -20,7 +20,7 @@ Jump to: [Try it now](#try-it-now-evaluator-quick-start) · [Architecture](#arch
 No passwords, ever — this product is magic-link-only, so "sign up" and "log in" are the same
 one-click flow.
 
-1. Go to **https://super-profile.kaushikrb909.workers.dev** and enter your email. Click the link
+1. Go to **https://sp.hyugorix.com** and enter your email. Click the link
    we send you (arrives in seconds; check spam once, see [known limitations](#known-limitations)).
    You now have your own workspace — this is real signup, not a demo account.
 2. **Widget (feature 2):** open **Settings** in the new workspace, copy the widget key, then visit
@@ -38,7 +38,7 @@ one-click flow.
    setting away from being switched on for the account owner (see
    [known limitations](#known-limitations)) — until then, use the built-in simulator:
    ```bash
-   curl -X POST https://super-profile.kaushikrb909.workers.dev/api/v1/email/inbound \
+   curl -X POST https://sp.hyugorix.com/api/v1/email/inbound \
      -H "X-Inbound-Secret: <ask the repo owner, or read backend/.dev.vars locally>" \
      -H "Content-Type: application/json" \
      -d '{"to":"<your-workspace-slug>@inbox.hyugorix.com","from":"customer@example.com","subject":"Help","text":"My order never arrived"}'
@@ -62,7 +62,7 @@ fallback route). This was a deliberate change from the original Pages-based plan
 CORS.
 
 ```
-                                   super-profile.kaushikrb909.workers.dev
+                                   sp.hyugorix.com  (+ api-sp.hyugorix.com API alias)
                                    ────────────────────────────────────────
    Evaluator's        HTTPS        ┌──────────────────────────────────────┐
    browser  ───────────────────────▶  Cloudflare Worker (Hono)            │
@@ -437,7 +437,7 @@ cd backend && pnpm test
 cd e2e && DEBUG_AUTH_SECRET=<same value as backend/.dev.vars> BASE_URL=http://localhost:8787 pnpm test
 
 # E2E against the deployed prod URL instead
-cd e2e && DEBUG_AUTH_SECRET=<the deployed Worker's secret> BASE_URL=https://super-profile.kaushikrb909.workers.dev pnpm test
+cd e2e && DEBUG_AUTH_SECRET=<the deployed Worker's secret> BASE_URL=https://sp.hyugorix.com pnpm test
 ```
 
 ## Deployment
@@ -459,8 +459,14 @@ pnpm --dir ../frontend build && npx wrangler deploy
 npx wrangler d1 migrations apply super-profile --remote --yes
 ```
 
-DNS records this project owns on `hyugorix.com` (added via the Cloudflare dashboard — the wrangler
-API token is intentionally zone-read-only): a single-level `inbox.` MX/TXT set for inbound email,
+**Custom domains.** The Worker is bound to `sp.hyugorix.com` (app + API, same origin) and
+`api-sp.hyugorix.com` (a direct-API alias on the same Worker) via the `routes` block in
+`wrangler.jsonc` (`custom_domain: true`) — `wrangler deploy` auto-provisions the DNS records and
+edge TLS certs for these. Both are single-level subdomains (Universal SSL covers them). The app is
+shown to users as "SuperProfile"; only the hostname is shortened to `sp`.
+
+Other DNS on `hyugorix.com` (added via the Cloudflare dashboard — the wrangler token can't write
+arbitrary DNS, only Workers custom domains): a single-level `inbox.` MX/TXT set for inbound email,
 and `notifications.` for the Resend-verified outbound sending domain. The zone apex is Microsoft
 365's real MX and is never touched by anything in this repo.
 

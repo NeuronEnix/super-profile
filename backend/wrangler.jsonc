@@ -15,6 +15,14 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WorkspaceHub", "RateLimiter"] }],
   "ai": { "binding": "AI" },
   "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "super-profile-attachments" }],
-  "vars": { "APP_URL": "https://super-profile.kaushikrb909.workers.dev", "INBOUND_DOMAIN": "inbox.hyugorix.com",
+  // Vanity domains: "SP" in the hostname (product is still shown as "SuperProfile" in the UI/emails).
+  // Both single-level subdomains of hyugorix.com (Universal SSL covers them); apex MX untouched.
+  // sp.hyugorix.com serves app + API same-origin (the SameSite=Strict cookie design); api-sp is an
+  // additional alias on the SAME Worker for direct API access — the dashboard still uses same-origin.
+  "routes": [
+    { "pattern": "sp.hyugorix.com", "custom_domain": true },
+    { "pattern": "api-sp.hyugorix.com", "custom_domain": true }
+  ],
+  "vars": { "APP_URL": "https://sp.hyugorix.com", "INBOUND_DOMAIN": "inbox.hyugorix.com",
             "SEND_DOMAIN": "notifications.hyugorix.com", "ENVIRONMENT": "prod" }
 }

@@ -57,8 +57,8 @@ reconnects; inbound email dedup for webhook retries.
 
 ## Status snapshot
 <!-- The overnight run keeps this section current: what's deployed, URLs, what's green/red -->
-- Prod URL: https://super-profile.kaushikrb909.workers.dev
-- Demo page (widget): https://super-profile.kaushikrb909.workers.dev/demo.html
+- Prod URL: https://sp.hyugorix.com
+- Demo page (widget): https://sp.hyugorix.com/demo.html
 - Inbound email address pattern: `<workspace-slug>@inbox.hyugorix.com`
 - **FINAL STATUS: Tasks 0–10 and 13 complete, all 7 required assignment features built,
   deployed, and verified against prod with real evidence (see the acceptance matrix in
@@ -91,13 +91,27 @@ reconnects; inbound email dedup for webhook retries.
       `FLAG.RATE_LIMIT_ENABLED = false` (your call for testing). To enforce before submitting,
       flip the constant in `backend/src/common/const.ts` and redeploy — limits are generous
       (won't trip evaluators).
-- [ ] `[seeded]` **Deliverability sanity check:** send yourself a magic link from the prod login
-      page to a *fresh* address (not previously emailed) and confirm it lands in Inbox, not
-      spam. If spam: add a DMARC TXT record for hyugorix.com (`v=DMARC1; p=none`) in Cloudflare
-      DNS — 2 minutes, helps a lot. (Partial evidence tonight: a real magic link to
-      kaushikrb909@gmail.com — not a fresh address, but not the debug backdoor either — landed
-      in the primary Inbox within about a minute, not spam. Worth a true fresh-address check
-      before submitting since a previously-emailed address doesn't fully rule out filtering.)
+- [x] **Custom domain — DONE.** App is live at **https://sp.hyugorix.com** (display name stays
+      "SuperProfile"); the API is also aliased at **https://api-sp.hyugorix.com** (same Worker).
+      Both are Workers Custom Domains provisioned by `wrangler deploy` (auto DNS + TLS), both
+      single-level subdomains, apex untouched. `APP_URL` now points at `sp.hyugorix.com` so magic
+      links use it. The old `super-profile.kaushikrb909.workers.dev` URL is now disabled (wrangler's
+      default once a custom domain exists) — if you want it back as a fallback, say so and I'll add
+      `"workers_dev": true` to `wrangler.jsonc`. README/e2e/docs all updated to the new URL.
+- [ ] **DMARC — correction + your requested change (needs a 1-line DNS edit you'll do).** The
+      overnight note ("add `v=DMARC1; p=none`") was **wrong** — a *strong* DMARC record already
+      exists on hyugorix.com:
+      `v=DMARC1; p=reject; rua=mailto:kaushikrb909@gmail.com; ruf=mailto:kaushikrb909@gmail.com; sp=reject; adkim=s; aspf=s; pct=100`
+      That's good (it's why app mail lands in Inbox, not spam). You asked to point the reports at
+      support@hyugorix.com. DMARC reports aren't "where spam goes" — they're daily authentication
+      summaries — but changing the address is exactly one field. Since I can't write DNS (browser
+      tool blocks dash.cloudflare.com), **you** edit the TXT record at `_dmarc.hyugorix.com` in
+      Cloudflare DNS to:
+      `v=DMARC1; p=reject; rua=mailto:support@hyugorix.com; ruf=mailto:support@hyugorix.com; sp=reject; adkim=s; aspf=s; pct=100`
+      (or keep both: `rua=mailto:support@hyugorix.com,mailto:kaushikrb909@gmail.com`). Do NOT change
+      `p=reject`/`sp=reject` — they're working. This is optional; deliverability is already fine.
+- [ ] `[seeded]` **Deliverability sanity check (optional):** magic link to a *fresh* address, or
+      the Outlook `kaushik@hyugorix.com` check (1 email). Gmail already confirmed landing in Inbox.
 - [ ] `[seeded]` **Optional:** Linear project "super profile" — Linear MCP needs re-auth
       (`/mcp` → linear-personal → authenticate) if you still want issues mirrored there.
 

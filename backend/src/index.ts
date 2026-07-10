@@ -15,6 +15,7 @@ import { handleEmailWorker } from "./email/email.worker";
 import { kbApi } from "./kb/kb.api";
 import { kbPublicApi } from "./kb/public.api";
 import { aiApi } from "./ai/ai.api";
+import { isAppHost, lookupKbDomain, normalizeHost } from "./domains/host";
 
 export { WorkspaceHub } from "./realtime/hub";
 export { RateLimiter } from "./ratelimit/limiter";
@@ -36,6 +37,28 @@ const openCors = cors({
 });
 app.use("/api/v1/widget/*", openCors);
 app.use("/api/v1/public/*", openCors);
+
+// Cloudflare-for-SaaS custom domains: the zone-wide `*/*` route hands this Worker ALL proxied
+// traffic on the zone — our own app host, customer docs domains, and anything else that happens
+// to be proxied. Recognized customer domains get the public KB only (its API + the SPA shell);
+// hosts we don't recognize are handed back to their real origin untouched.
+app.use("*", async (c, next) => {
+  const host = normalizeHost(c.req.header("host"));
+  if (isAppHost(host, c.env.APP_URL)) return next();
+  const domain = await lookupKbDomain(c.env.DB, host);
+  if (!domain) {
+    try {
+      return await fetch(c.req.raw);
+    } catch {
+      return c.text("Not found", 404);
+    }
+  }
+  const path = new URL(c.req.url).pathname;
+  if (path.startsWith("/api/") && !path.startsWith("/api/v1/public/")) {
+    throw ctxErr.general.notFound();
+  }
+  return next();
+});
 
 app.get("/api/v1/health", (c) => ok(c, { ts: Date.now() }));
 

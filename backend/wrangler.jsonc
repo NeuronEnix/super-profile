@@ -20,7 +20,12 @@
   // sp.hyugorix.com serves app + API same-origin from one Worker: /api/v1/* → Hono, everything
   // else → the SPA. Same-origin is deliberate — it's what lets the SameSite=Strict refresh cookie work.
   "routes": [
-    { "pattern": "sp.hyugorix.com", "custom_domain": true }
+    { "pattern": "sp.hyugorix.com", "custom_domain": true },
+    // Cloudflare for SaaS custom domains (docs.customer.com): custom-hostname traffic enters
+    // this zone with its original Host header, and only a zone-wide route can catch it
+    // (per CF's "Worker as your fallback origin" doc). The Worker passes through any host it
+    // doesn't recognize, so other proxied records on the zone keep working.
+    { "pattern": "*/*", "zone_name": "hyugorix.com" }
   ],
   "vars": { "APP_URL": "https://sp.hyugorix.com", "INBOUND_DOMAIN": "inbox.hyugorix.com",
             "SEND_DOMAIN": "notifications.hyugorix.com", "ENVIRONMENT": "prod" }

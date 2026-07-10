@@ -3,7 +3,8 @@ import { Link } from "react-router";
 import { api, ApiError } from "../lib/api";
 import type { KbSearchHit } from "../lib/types";
 
-export function KbSearch({ wsSlug }: { wsSlug: string }) {
+export function KbSearch({ wsSlug, base }: { wsSlug: string; base?: string }) {
+  const linkBase = base ?? `/kb/${wsSlug}`;
   const [q, setQ] = useState("");
   const [results, setResults] = useState<KbSearchHit[] | null>(null);
 
@@ -39,7 +40,7 @@ export function KbSearch({ wsSlug }: { wsSlug: string }) {
           {results.map((r) => (
             <li key={r.id}>
               <Link
-                to={`/kb/${wsSlug}/a/${r.slug}`}
+                to={`${linkBase}/a/${r.slug}`}
                 className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 onClick={() => setQ("")}
               >

@@ -12,6 +12,8 @@ import SettingsPage from "./settings/SettingsPage";
 import WidgetApp from "./widget/WidgetApp";
 import KbHome from "./kb-public/KbHome";
 import KbArticle from "./kb-public/KbArticle";
+import KbDomainApp from "./kb-public/KbDomainApp";
+import { isCustomKbHost } from "./lib/kbHost";
 
 function FullscreenSpinner() {
   return <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">Loading…</div>;
@@ -73,6 +75,15 @@ function AppRoutes() {
 }
 
 function App() {
+  // Customer docs domains get the public KB only — no AuthProvider (its /auth/me
+  // probe is blocked on those hosts anyway) and none of the dashboard routes.
+  if (isCustomKbHost) {
+    return (
+      <BrowserRouter>
+        <KbDomainApp />
+      </BrowserRouter>
+    );
+  }
   return (
     <BrowserRouter>
       <ToastProvider>

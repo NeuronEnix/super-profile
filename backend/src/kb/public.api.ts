@@ -5,11 +5,22 @@ import { ctxErr } from "../ctx/ctx.error";
 import { validate } from "../middleware/validate";
 import { ARTICLE } from "../common/const";
 import { searchArticles } from "./search";
+import { lookupKbDomain, normalizeHost } from "../domains/host";
 import type { HonoEnv } from "../common/hono-env";
 
 const SearchQuery = z.object({ q: z.string().min(1).max(200) });
 
 export const kbPublicApi = new Hono<HonoEnv>();
+
+// Resolve the request's Host header to a workspace — this is how the SPA served on a
+// customer docs domain (Cloudflare for SaaS custom hostname) learns whose KB to render.
+// Must be registered before /:wsSlug so "host" isn't swallowed as a workspace slug.
+kbPublicApi.get("/host", async (c) => {
+  const host = normalizeHost(c.req.header("host"));
+  const domain = await lookupKbDomain(c.env.DB, host);
+  if (!domain) throw ctxErr.workspace.notFound();
+  return ok(c, { wsSlug: domain.wsSlug, workspace: { name: domain.name, widgetColor: domain.widgetColor } });
+});
 
 async function getWorkspaceBySlug(db: D1Database, wsSlug: string) {
   const workspace = await db
@@ -32,17 +43,22 @@ kbPublicApi.get("/:wsSlug", async (c) => {
     .all<{ id: string; name: string; slug: string; description: string }>();
 
   const { results: articles } = await c.env.DB.prepare(
-    `SELECT id, collection_id as collectionId, title, slug FROM kb_articles
-     WHERE workspace_id=?1 AND status=?2 ORDER BY title ASC`,
+    `SELECT id, collection_id as collectionId, title, slug, substr(body_text, 1, 180) as excerpt
+     FROM kb_articles WHERE workspace_id=?1 AND status=?2 ORDER BY title ASC`,
   )
     .bind(workspace.id, ARTICLE.STATUS.PUBLISHED)
-    .all<{ id: string; collectionId: string | null; title: string; slug: string }>();
+    .all<{ id: string; collectionId: string | null; title: string; slug: string; excerpt: string }>();
 
+  const toRef = (a: { title: string; slug: string; excerpt: string }) => ({
+    title: a.title,
+    slug: a.slug,
+    excerpt: a.excerpt,
+  });
   const collectionsWithArticles = collections.map((col) => ({
     ...col,
-    articles: articles.filter((a) => a.collectionId === col.id).map((a) => ({ title: a.title, slug: a.slug })),
+    articles: articles.filter((a) => a.collectionId === col.id).map(toRef),
   }));
-  const uncategorized = articles.filter((a) => !a.collectionId).map((a) => ({ title: a.title, slug: a.slug }));
+  const uncategorized = articles.filter((a) => !a.collectionId).map(toRef);
 
   return ok(c, {
     workspace: { name: workspace.name, widgetColor: workspace.widgetColor },

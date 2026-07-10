@@ -103,4 +103,14 @@ export type KbArticle = {
 
 export type KbSearchHit = { id: string; title: string; slug: string };
 
+export type KbDomainRecord = { type: string; name: string; value: string; note: string };
+
+export type KbDomain = {
+  id: string;
+  hostname: string;
+  status: "PENDING_DNS" | "ACTIVE" | "FAILED";
+  createdAt: number;
+  records: KbDomainRecord[];
+};
+
 export type Summary = { summary: string; generatedAt: number; cached: boolean };

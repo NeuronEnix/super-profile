@@ -4,6 +4,7 @@ import { api, ApiError } from "../lib/api";
 import { useToast } from "../components/Toast";
 import { CollectionModal } from "./CollectionModal";
 import { ArticleEditor } from "./ArticleEditor";
+import { DomainPanel } from "./DomainPanel";
 import type { KbArticle, KbCollection } from "../lib/types";
 
 type View = { mode: "list" } | { mode: "editor"; articleId: string | null };
@@ -147,6 +148,7 @@ export default function KbAdminPage() {
       </aside>
 
       <div className="flex-1 p-4">
+        {wsId && <DomainPanel wsId={wsId} />}
         <div className="mb-3 flex items-center justify-between">
           <h1 className="text-lg font-semibold text-slate-900">Knowledge Base</h1>
           <button

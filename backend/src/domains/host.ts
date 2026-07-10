@@ -19,6 +19,19 @@ export function isAppHost(host: string, appUrl: string): boolean {
   return host.endsWith(".workers.dev");
 }
 
+// Full hostname like docs.customer.com: dot-separated labels of letters/digits/hyphens,
+// no leading/trailing hyphen, at least two labels, 253 chars max overall.
+const HOSTNAME_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+
+export function isValidHostname(hostname: string): boolean {
+  return hostname.length <= 253 && HOSTNAME_REGEX.test(hostname);
+}
+
+/** The zone our own app lives on (sp.hyugorix.com → hyugorix.com) — customers can't claim it. */
+export function appZone(appUrl: string): string {
+  return new URL(appUrl).hostname.split(".").slice(-2).join(".");
+}
+
 export async function lookupKbDomain(db: D1Database, host: string): Promise<KbDomain | null> {
   if (!host) return null;
   return await db

@@ -103,6 +103,21 @@ export namespace ctxErr {
       new CtxError({ name: "EMAIL_INVALID_INBOUND", msg: "Invalid inbound email payload", ...e }),
   };
 
+  export const domain = {
+    alreadyUsed: (e?: TResErr) =>
+      new CtxError({
+        name: "DOMAIN_ALREADY_USED",
+        msg: "This domain is already connected to a workspace",
+        ...e,
+      }),
+    reserved: (e?: TResErr) =>
+      new CtxError({ name: "DOMAIN_RESERVED", msg: "This domain can't be connected", ...e }),
+    notFound: (e?: TResErr) =>
+      new CtxError({ name: "DOMAIN_NOT_FOUND", msg: "Domain not found", ...e }),
+    verificationFailed: (e?: TResErr) =>
+      new CtxError({ name: "DOMAIN_VERIFICATION_FAILED", msg: "Domain verification failed", ...e }),
+  };
+
   export const ai = {
     unavailable: (e?: TResErr) =>
       new CtxError({ name: "AI_UNAVAILABLE", msg: "AI is unavailable right now, try again shortly", ...e }),
@@ -118,13 +133,6 @@ export namespace ctxErr {
         msg: "AI is handling this conversation. Take over to reply yourself.",
         ...e,
       }),
-  };
-
-  export const domain = {
-    notFound: (e?: TResErr) =>
-      new CtxError({ name: "DOMAIN_NOT_FOUND", msg: "Domain not found", ...e }),
-    verificationFailed: (e?: TResErr) =>
-      new CtxError({ name: "DOMAIN_VERIFICATION_FAILED", msg: "Domain verification failed", ...e }),
   };
 
   export const rateLimit = {

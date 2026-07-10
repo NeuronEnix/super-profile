@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAppHost, normalizeHost } from "../src/domains/host";
+import { appZone, isAppHost, isValidHostname, normalizeHost } from "../src/domains/host";
 
 const APP_URL = "https://sp.hyugorix.com";
 
@@ -28,5 +28,31 @@ describe("isAppHost", () => {
     expect(isAppHost("docs.kaushikrb.com", APP_URL)).toBe(false);
     expect(isAppHost("hyugorix.com", APP_URL)).toBe(false);
     expect(isAppHost("evil-sp.hyugorix.com.attacker.dev", APP_URL)).toBe(false);
+  });
+});
+
+describe("isValidHostname", () => {
+  it("accepts full domains and subdomains", () => {
+    expect(isValidHostname("docs.kaushikrb.com")).toBe(true);
+    expect(isValidHostname("help.docs.acme-corp.io")).toBe(true);
+    expect(isValidHostname("a1.b2.c3")).toBe(true);
+  });
+
+  it("rejects bare labels, schemes, paths and junk", () => {
+    expect(isValidHostname("docs")).toBe(false); // needs at least one dot
+    expect(isValidHostname("https://docs.acme.com")).toBe(false);
+    expect(isValidHostname("docs.acme.com/help")).toBe(false);
+    expect(isValidHostname("-docs.acme.com")).toBe(false);
+    expect(isValidHostname("docs..acme.com")).toBe(false);
+    expect(isValidHostname("docs .acme.com")).toBe(false);
+    expect(isValidHostname("")).toBe(false);
+    expect(isValidHostname(`${"a".repeat(260)}.com`)).toBe(false);
+  });
+});
+
+describe("appZone", () => {
+  it("reduces the app host to its registrable zone", () => {
+    expect(appZone("https://sp.hyugorix.com")).toBe("hyugorix.com");
+    expect(appZone("http://localhost:8787")).toBe("localhost");
   });
 });

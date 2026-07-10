@@ -76,7 +76,7 @@ ALTER TABLE workspaces ADD COLUMN kb_digest_at INTEGER;
 
 - [x] **Step 2: Apply locally and verify**
 
-Run: `cd backend && npx wrangler d1 migrations apply super-profile --local --yes`
+Run: `cd backend && CI=true npx wrangler d1 migrations apply super-profile --local`
 Expected: `0005_kb_sync.sql` listed as applied, no error.
 
 - [x] **Step 3: Add consts** — in `backend/src/common/const.ts`, after the `DOMAIN` line add:
@@ -1365,7 +1365,7 @@ export function KbSyncPanel({ wsId }: { wsId: string }) {
 {wsId && <KbSyncPanel wsId={wsId} />}
 ```
 
-- [ ] **Step 4: Build + deploy.** From repo root: `pnpm --dir frontend build`, then `cd backend && npx wrangler d1 migrations apply super-profile --remote --yes && npx wrangler deploy`. Expected: migration 0005 applied remotely; deploy prints a version id.
+- [ ] **Step 4: Build + deploy.** From repo root: `pnpm --dir frontend build`, then `cd backend && CI=true npx wrangler d1 migrations apply super-profile --remote && npx wrangler deploy`. Expected: migration 0005 applied remotely; deploy prints a version id.
 
 - [ ] **Step 5: Live check script** — `e2e/scripts/kb-sync-live-check.mjs` (modeled on ws-check.mjs; run BY HAND against prod, never from a test suite):
 
@@ -1911,7 +1911,7 @@ UPDATE conversations SET first_agent_reply_at =
 UPDATE conversations SET resolved_at = updated_at WHERE status = 'RESOLVED';
 ```
 
-Apply locally: `cd backend && npx wrangler d1 migrations apply super-profile --local --yes`
+Apply locally: `cd backend && CI=true npx wrangler d1 migrations apply super-profile --local`
 
 - [ ] **Step 2: Failing tests** — `backend/test/sla.test.ts`:
 
@@ -2166,7 +2166,7 @@ In `SettingsPage.tsx`: `import { SlaSection } from "./SlaSection";` and render `
   })()}
   ```
 
-- [ ] **Step 9: Green + deploy.** `cd backend && pnpm test` all pass; `pnpm --dir frontend build` (repo root); `cd backend && npx wrangler d1 migrations apply super-profile --remote --yes && npx wrangler deploy`.
+- [ ] **Step 9: Green + deploy.** `cd backend && pnpm test` all pass; `pnpm --dir frontend build` (repo root); `cd backend && CI=true npx wrangler d1 migrations apply super-profile --remote && npx wrangler deploy`.
 
 - [ ] **Step 10: Prod verify.** Via debug-auth API against prod: create throwaway ws; PATCH sla targets `{slaFirstResponseMin: 1, slaResolutionMin: 2}`; widget-boot + create conversation; GET conversations → confirm `firstAgentReplyAt: null`; wait ~70s; GET again and confirm the frontend math would show BREACHED (the API returns the raw timestamps — assert `Date.now() > createdAt + 60_000`); agent-reply via POST message; GET → `firstAgentReplyAt` is now set. Log the evidence. **Commit + push**: `git add -A && git commit -m "feat(sla): first-response/resolution targets with on-read breach chips" && git push origin main`
 

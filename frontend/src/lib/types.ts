@@ -81,6 +81,22 @@ export type Message = {
   createdAt: number;
 };
 
+export type ContactEvent = { id: string; type: "PAGE_VIEW"; url: string; title: string | null; createdAt: number };
+export type TimelineConversation = {
+  id: string;
+  channel: Channel;
+  status: ConversationStatus;
+  subject: string | null;
+  lastMessagePreview: string;
+  lastMessageAt: number;
+  messageCount: number;
+};
+export type ContactTimeline = {
+  contact: { id: string; name: string | null; email: string | null; lastSeenAt: number | null };
+  events: ContactEvent[];
+  conversations: TimelineConversation[];
+};
+
 export type ArticleStatus = "DRAFT" | "PUBLISHED";
 
 export type KbCollection = {

@@ -2336,9 +2336,9 @@ and extend the bottom script (inside the IIFE, after the widget injection):
 - `relativeTime(ts: number): string` in `frontend/src/lib/time.ts`
 - `ContactPanel` new props: `{ wsId, contact, currentConversationId, onSelectConversation }`
 
-- [ ] **Step 1: `frontend/src/lib/time.ts`** — move `relativeTime` out of ConversationList verbatim, export it; ConversationList imports it (delete its local copy).
+- [x] **Step 1: `frontend/src/lib/time.ts`** — move `relativeTime` out of ConversationList verbatim, export it; ConversationList imports it (delete its local copy).
 
-- [ ] **Step 2: `backend/src/contacts/contacts.api.ts`:**
+- [x] **Step 2: `backend/src/contacts/contacts.api.ts`:**
 
 ```ts
 import { Hono } from "hono";
@@ -2379,7 +2379,7 @@ contactsApi.get("/contacts/:contactId/timeline", async (c) => {
 
 Mount: `app.route("/api/v1/ws/:wsId", contactsApi);` in index.ts.
 
-- [ ] **Step 3: Types.** In `frontend/src/lib/types.ts`:
+- [x] **Step 3: Types.** In `frontend/src/lib/types.ts`:
 
 ```ts
 export type ContactEvent = { id: string; type: "PAGE_VIEW"; url: string; title: string | null; createdAt: number };
@@ -2394,7 +2394,7 @@ export type ContactTimeline = {
 };
 ```
 
-- [ ] **Step 4: Rebuild `frontend/src/inbox/ContactPanel.tsx`:**
+- [x] **Step 4: Rebuild `frontend/src/inbox/ContactPanel.tsx`:**
 
 ```tsx
 import { useEffect, useState } from "react";
@@ -2500,9 +2500,9 @@ export function ContactPanel({
 }
 ```
 
-- [ ] **Step 5: Wire props.** `ConversationView` gains prop `onSelectConversation: (id: string) => void` and renders `<ContactPanel wsId={wsId} contact={conversation.contact} currentConversationId={conversationId} onSelectConversation={onSelectConversation} />`. `InboxPage` passes `onSelectConversation={setSelectedId}`.
+- [x] **Step 5: Wire props.** `ConversationView` gains prop `onSelectConversation: (id: string) => void` and renders `<ContactPanel wsId={wsId} contact={conversation.contact} currentConversationId={conversationId} onSelectConversation={onSelectConversation} />`. `InboxPage` passes `onSelectConversation={setSelectedId}`.
 
-- [ ] **Step 6: e2e** — `e2e/tests/timeline.spec.ts`:
+- [x] **Step 6: e2e** — `e2e/tests/timeline.spec.ts`:
 
 ```ts
 import { test, expect } from "@playwright/test";
@@ -2549,7 +2549,7 @@ test("timeline: widget pageviews and last-seen appear on the contact panel", asy
 
 NOTE: before writing the Send-button locator, check `frontend/src/widget/NewTicket.tsx` for the actual button label and placeholder text; adjust the spec to the real strings.
 
-- [ ] **Step 7: Full local run.** backend tests green; frontend build; wrangler dev; `npx playwright test timeline canned` PASS; full `npx playwright test` PASS (older specs must survive the eager iframe). Kill dev server.
+- [x] **Step 7: Full local run.** backend tests green; frontend build; wrangler dev; `npx playwright test timeline canned` PASS; full `npx playwright test` PASS (older specs must survive the eager iframe). Kill dev server.
 
 - [ ] **Step 8: Deploy + prod smoke.** Apply migration 0007 `--remote`, deploy, then browse the prod demo page with a real workspace key (orchestrator, in browser), click around, open the inbox, see the trail. **Commit + push**: `git add -A && git commit -m "feat(timeline): contact super-profile panel — activity trail, last seen, history" && git push origin main`
 

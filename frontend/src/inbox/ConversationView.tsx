@@ -39,6 +39,7 @@ export function ConversationView({
   onlineContactIds,
   onConversationChanged,
   slaTargets,
+  onSelectConversation,
 }: {
   conversationId: string;
   wsId: string;
@@ -52,6 +53,7 @@ export function ConversationView({
   onlineContactIds: string[];
   onConversationChanged: (c: Conversation) => void;
   slaTargets: SlaTargets;
+  onSelectConversation: (id: string) => void;
 }) {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -464,7 +466,12 @@ export function ConversationView({
       </div>
 
       <div className="w-64 shrink-0 overflow-y-auto border-l border-slate-200 bg-white">
-        <ContactPanel contact={conversation.contact} />
+        <ContactPanel
+          wsId={wsId}
+          contact={conversation.contact}
+          currentConversationId={conversationId}
+          onSelectConversation={onSelectConversation}
+        />
         <SummaryPanel wsId={wsId} conversationId={conversationId} messageCount={conversation.messageCount} />
       </div>
     </div>

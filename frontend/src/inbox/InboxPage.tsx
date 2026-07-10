@@ -151,6 +151,7 @@ export default function InboxPage() {
           onlineContactIds={onlineContactIds}
           onConversationChanged={handleConversationChanged}
           slaTargets={slaTargets}
+          onSelectConversation={setSelectedId}
         />
       ) : (
         <div className="flex flex-1 items-center justify-center text-sm text-slate-400">

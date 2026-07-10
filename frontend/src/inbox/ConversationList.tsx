@@ -1,4 +1,5 @@
 import { computeSla, type SlaTargets } from "../lib/sla";
+import { relativeTime } from "../lib/time";
 import type { Channel, Conversation, ConversationStatus, Member } from "../lib/types";
 
 export type Filters = { channel?: Channel; status: ConversationStatus; assigneeId?: string };
@@ -8,16 +9,6 @@ const STATUS_TABS: { label: string; value: ConversationStatus }[] = [
   { label: "Snoozed", value: "SNOOZED" },
   { label: "Resolved", value: "RESOLVED" },
 ];
-
-function relativeTime(ts: number): string {
-  const diffSec = Math.round((Date.now() - ts) / 1000);
-  if (diffSec < 60) return "just now";
-  const diffMin = Math.round(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  return `${Math.round(diffHr / 24)}d ago`;
-}
 
 /**
  * The colored left rail + capsule encode a conversation's state at a glance:

@@ -1445,9 +1445,9 @@ NOTE: check the public KB endpoint shape first (`backend/src/kb/public.api.ts` `
 - [x] **Step 6: Run it against prod.** `cd e2e && BASE_URL=https://sp.hyugorix.com DEBUG_AUTH_SECRET=$(grep DEBUG_AUTH_SECRET ../backend/.dev.vars | cut -d= -f2) node scripts/kb-sync-live-check.mjs`
 Expected output ends with `ALL CHECKS PASSED`. If the blocked-path check fails because Vercel changed behavior, capture the actual status/error into decision.md and continue — the happy path is the release gate.
 
-- [ ] **Step 7: Visual check.** Orchestrator (browser): open the throwaway workspace's KB page on prod, confirm the panel shows Synced + article count, cooldown text visible, Sync button disabled; digest exists: `cd backend && npx wrangler d1 execute super-profile --remote --command "SELECT length(kb_digest) FROM workspaces WHERE id='<wsId>'" --json`.
+- [x] **Step 7: Visual check.** Orchestrator (browser): open the throwaway workspace's KB page on prod, confirm the panel shows Synced + article count, cooldown text visible, Sync button disabled; digest exists: `cd backend && npx wrangler d1 execute super-profile --remote --command "SELECT length(kb_digest) FROM workspaces WHERE id='<wsId>'" --json`.
 
-- [ ] **Step 8: Commit + push**: `git add -A && git commit -m "feat(kb-sync): docs-import panel with live progress, cooldown and failure states" && git push origin main`
+- [x] **Step 8: Commit + push**: `git add -A && git commit -m "feat(kb-sync): docs-import panel with live progress, cooldown and failure states" && git push origin main`
 
 ---
 

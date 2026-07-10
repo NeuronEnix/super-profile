@@ -72,6 +72,12 @@ export namespace ctxErr {
   export const conversation = {
     notFound: (e?: TResErr) =>
       new CtxError({ name: "CONVERSATION_NOT_FOUND", msg: "Conversation not found", ...e }),
+    assignedToOther: (e?: TResErr) =>
+      new CtxError({
+        name: "CONVERSATION_ASSIGNED_TO_OTHER",
+        msg: "This conversation is assigned to someone else. Reassign it to yourself to reply.",
+        ...e,
+      }),
   };
 
   export const kb = {

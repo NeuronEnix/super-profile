@@ -1,6 +1,7 @@
 import { uuidv7, now } from "../common/id";
 import { CONVERSATION, WS_EVENT } from "../common/const";
-import { truncatePreview, shouldReopen } from "../conversations/service";
+import { truncatePreview, shouldReopen, isAssignedToOther } from "../conversations/service";
+import { CtxError, ctxErr } from "../ctx/ctx.error";
 import type { Env } from "../types";
 
 type SocketAttachment = { kind: "AGENT" | "CONTACT"; userId: string };
@@ -67,6 +68,12 @@ export async function sendMessage(env: Env, input: MessageIn): Promise<MessageOu
     method: "POST",
     body: JSON.stringify(input),
   });
+  // The DO enforces the assignment lock atomically and reports it back as 409 → re-throw the
+  // same CtxError so the API's onError maps it to a 400 the frontend can display.
+  if (res.status === 409) {
+    const { error } = (await res.json()) as { error: { name: string; msg: string } };
+    throw new CtxError({ name: error.name, msg: error.msg });
+  }
   if (!res.ok) throw new Error(`hub /message failed: ${res.status}`);
   return res.json();
 }
@@ -132,8 +139,15 @@ export class WorkspaceHub {
       }
       if (url.pathname === "/message" && request.method === "POST") {
         const input = (await request.json()) as MessageIn;
-        const out = await this.handleMessage(input);
-        return Response.json(out);
+        try {
+          const out = await this.handleMessage(input);
+          return Response.json(out);
+        } catch (e) {
+          if (e instanceof CtxError) {
+            return Response.json({ error: { name: e.name, msg: e.message } }, { status: 409 });
+          }
+          throw e;
+        }
       }
       if (url.pathname === "/read" && request.method === "POST") {
         const input = (await request.json()) as { conversationId: string; by: "AGENT" | "CONTACT" };
@@ -325,6 +339,15 @@ export class WorkspaceHub {
     if (!conversationId) throw new Error("MessageIn missing conversationId and newConversation");
 
     const current = await this.loadConversation(conversationId);
+
+    // Assignment lock (agents only): while a conversation is assigned to a specific agent and not
+    // yet resolved, only that agent may reply. This runs inside the single-threaded DO, so the
+    // check-then-write below is atomic — two agents racing on an unassigned conversation can't both
+    // win: the first claims it (auto-assign in the UPDATE), the second lands here and is rejected.
+    if (input.senderType === "AGENT" && isAssignedToOther(current.status, current.assigneeId, input.senderId)) {
+      throw ctxErr.conversation.assignedToOther();
+    }
+
     const messageId = uuidv7();
     const reopen = shouldReopen(input.senderType, current.status);
     const nextStatus = reopen ? CONVERSATION.STATUS.OPEN : current.status;

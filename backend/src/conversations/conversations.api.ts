@@ -271,6 +271,15 @@ conversationsApi.patch("/conversations/:id", validate(PatchConversationBody, "js
       );
     } else if (patch.status === CONVERSATION.STATUS.OPEN) systemMessages.push("Reopened");
   }
+  // Resolving releases the assignment: a closed conversation is open to the whole team, and
+  // whoever replies next (reopening it) claims it fresh. Skip when the caller set assignee itself.
+  if (
+    patch.status === CONVERSATION.STATUS.RESOLVED &&
+    patch.assigneeId === undefined &&
+    current.assigneeId !== null
+  ) {
+    sets.push("assignee_id=NULL");
+  }
   if (patch.snoozedUntil !== undefined) {
     binds.push(patch.snoozedUntil);
     sets.push(`snoozed_until=?${binds.length}`);

@@ -6,10 +6,20 @@ import { validate } from "../middleware/validate";
 import { authMiddleware, wsMiddleware, requireAdmin } from "../middleware/auth";
 import { ROLE } from "../common/const";
 import { now, uuidv7 } from "../common/id";
-import { slugify, randomSuffix } from "../common/slug";
+import { SLUG_REGEX } from "../common/slug";
 import type { HonoEnv } from "../common/hono-env";
 
-const CreateWorkspaceBody = z.object({ name: z.string().min(1).max(80) });
+const CreateWorkspaceBody = z.object({
+  name: z.string().min(1).max(80),
+  // The handle doubles as the inbound-email prefix and KB URL segment, so it's the user's to
+  // choose (predictable) rather than auto-derived — validated to the slug format, uniqueness
+  // enforced below (no silent suffixing).
+  slug: z
+    .string()
+    .min(2)
+    .max(40)
+    .regex(SLUG_REGEX, "Use lowercase letters, numbers, dots and hyphens; start with a letter, don't end with a dot or hyphen"),
+});
 const PatchWorkspaceBody = z.object({
   name: z.string().min(1).max(80).optional(),
   widgetColor: z
@@ -18,23 +28,14 @@ const PatchWorkspaceBody = z.object({
     .optional(),
 });
 
-async function uniqueSlug(db: D1Database, name: string): Promise<string> {
-  const base = slugify(name);
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const candidate = attempt === 0 ? base : `${base}-${randomSuffix()}`;
-    const existing = await db.prepare("SELECT 1 FROM workspaces WHERE slug=?1").bind(candidate).first();
-    if (!existing) return candidate;
-  }
-  return `${base}-${randomSuffix()}`;
-}
-
 export const workspacesApi = new Hono<HonoEnv>();
 workspacesApi.use("*", authMiddleware);
 
 workspacesApi.post("/", validate(CreateWorkspaceBody, "json"), async (c) => {
-  const { name } = c.get("body") as z.infer<typeof CreateWorkspaceBody>;
+  const { name, slug } = c.get("body") as z.infer<typeof CreateWorkspaceBody>;
   const userId = c.get("userId");
-  const slug = await uniqueSlug(c.env.DB, name);
+  const taken = await c.env.DB.prepare("SELECT 1 FROM workspaces WHERE slug=?1").bind(slug).first();
+  if (taken) throw ctxErr.workspace.slugTaken();
   const workspaceId = uuidv7();
   const widgetKey = `wk_${uuidv7().replaceAll("-", "")}`;
   const ts = now();

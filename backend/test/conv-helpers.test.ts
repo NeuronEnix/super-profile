@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   decodeConversationCursor,
   encodeConversationCursor,
+  isAssignedToOther,
   shouldReopen,
   truncatePreview,
 } from "../src/conversations/service";
+
+const ME = "agent-1";
+const OTHER = "agent-2";
 
 describe("truncatePreview", () => {
   it("leaves short text untouched", () => {
@@ -37,6 +41,28 @@ describe("shouldReopen", () => {
   it("does not reopen for AGENT or SYSTEM senders", () => {
     expect(shouldReopen("AGENT", "SNOOZED")).toBe(false);
     expect(shouldReopen("SYSTEM", "RESOLVED")).toBe(false);
+  });
+});
+
+describe("isAssignedToOther (composer lock)", () => {
+  it("locks an OPEN conversation assigned to another agent", () => {
+    expect(isAssignedToOther("OPEN", OTHER, ME)).toBe(true);
+  });
+
+  it("locks a SNOOZED conversation assigned to another agent", () => {
+    expect(isAssignedToOther("SNOOZED", OTHER, ME)).toBe(true);
+  });
+
+  it("does NOT lock when unassigned (anyone can claim it)", () => {
+    expect(isAssignedToOther("OPEN", null, ME)).toBe(false);
+  });
+
+  it("does NOT lock when the viewer is the assignee", () => {
+    expect(isAssignedToOther("OPEN", ME, ME)).toBe(false);
+  });
+
+  it("does NOT lock a RESOLVED conversation even if still assigned (open to all)", () => {
+    expect(isAssignedToOther("RESOLVED", OTHER, ME)).toBe(false);
   });
 });
 

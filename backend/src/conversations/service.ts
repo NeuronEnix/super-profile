@@ -8,6 +8,19 @@ export function shouldReopen(senderType: string, currentStatus: string): boolean
   return senderType === "CONTACT" && currentStatus !== CONVERSATION.STATUS.OPEN;
 }
 
+/**
+ * The assignment lock: an open/snoozed conversation that's assigned to a specific agent is
+ * locked to everyone else. Resolved conversations are unassigned/open to all, and an unassigned
+ * conversation (assigneeId === null) is claimable by anyone. `agentId` is the viewer/sender.
+ */
+export function isAssignedToOther(
+  status: string,
+  assigneeId: string | null,
+  agentId: string | null,
+): boolean {
+  return status !== CONVERSATION.STATUS.RESOLVED && assigneeId != null && assigneeId !== agentId;
+}
+
 export function encodeConversationCursor(lastMessageAt: number, id: string): string {
   return btoa(JSON.stringify([lastMessageAt, id]));
 }

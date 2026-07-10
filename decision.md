@@ -442,3 +442,21 @@ was fixed, unit/e2e-verified locally, deployed, and re-verified against prod in 
 - **Resend "Receiving" exists on this account after all** — contradicting #13/MORNING.md ("no
   Receiving tab"). Custom receiving domains are supported, which is the apex-safe subdomain-MX
   transport MORNING.md wished for. Logged there for the user's go/no-go — DNS stays his call.
+- **Workspace handle is now user-chosen + validated (two fields).** The create-workspace form was
+  a single freeform "name" auto-slugified. Since the slug doubles as the inbound-email prefix
+  (`<slug>@inbox.hyugorix.com`) and KB URL, it should be predictable, so I split it into a display
+  **name** + a **handle** (auto-suggested from the name, editable). **Rule** (your spec): lowercase
+  letters/digits/dot/hyphen, must start with a letter, must not end with a dot or hyphen — regex
+  `^[a-z](?:[a-z0-9.-]*[a-z0-9])?$`, enforced client-side (live) and server-side (Zod), 2–40 chars.
+  Duplicate handles now 400 `WORKSPACE_SLUG_TAKEN` (no more silent `-a1b2` suffixing). *Trade-off:*
+  kept a human name so the widget/switcher still show "Acme Corp", not "acme". Easy to collapse to a
+  single field if you'd rather the name IS the handle — say the word.
+- **Composer assignment lock.** While a conversation is assigned to another agent and not resolved,
+  that agent's is the only composer that can reply; everyone else's is disabled with an amber
+  "Assigned to <name> — reassign to yourself to reply" note (the assignee dropdown stays live so
+  anyone can claim it). Unassigned → open to all; first agent to send claims it (auto-assign), and a
+  racing second send is rejected atomically inside the single-threaded DO (`CONVERSATION_ASSIGNED_TO_OTHER`
+  → 400, text preserved for retry). Resolving releases the assignment (→ Unassigned, open to all);
+  reopening via a reply re-claims it. Lock predicate `isAssignedToOther()` is unit-tested; the
+  disabled-composer visual for the two-agent case wasn't shown live (ban-gera has one member and I
+  won't fake prod data) — offer stands to invite a second agent for a live demo.

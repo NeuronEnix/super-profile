@@ -170,16 +170,21 @@ export function ConversationView({
 
   const handleSend = useCallback(
     async (body: string) => {
-      const { conversation: snapshot, message } = await api<{ conversation: ConversationSnapshot; message: Message }>(
-        `/api/v1/ws/${wsId}/conversations/${conversationId}/messages`,
-        { method: "POST", body: { body } },
-      );
-      const merged = mergeContactOnto(snapshot);
-      setConversation(merged);
-      setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
-      if (merged) onConversationChanged(merged);
+      try {
+        const { conversation: snapshot, message } = await api<{ conversation: ConversationSnapshot; message: Message }>(
+          `/api/v1/ws/${wsId}/conversations/${conversationId}/messages`,
+          { method: "POST", body: { body } },
+        );
+        const merged = mergeContactOnto(snapshot);
+        setConversation(merged);
+        setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
+        if (merged) onConversationChanged(merged);
+      } catch (err) {
+        showError(err instanceof ApiError ? err.message : "Something went wrong");
+        throw err; // let the composer keep the unsent text
+      }
     },
-    [wsId, conversationId, onConversationChanged],
+    [wsId, conversationId, onConversationChanged, showError],
   );
 
   const handleTyping = useCallback(() => {
@@ -202,6 +207,17 @@ export function ConversationView({
     if (deliveredAt >= m.createdAt) return "delivered";
     return "sent";
   };
+
+  // Assignment lock: while a conversation is assigned to another agent and not yet resolved, only
+  // that agent may reply. Unassigned or resolved conversations are open to everyone (whoever replies
+  // to an unassigned one claims it — see the backend auto-assign). The assignee dropdown stays live
+  // so anyone can reassign it to themselves and unlock their own composer.
+  const lockedToOther =
+    conversation.status !== "RESOLVED" &&
+    conversation.assigneeId != null &&
+    conversation.assigneeId !== currentUserId;
+  const lockOwner = members.find((m) => m.userId === conversation.assigneeId);
+  const lockOwnerName = lockOwner?.name ?? lockOwner?.email ?? "another agent";
 
   return (
     <div className="flex flex-1 min-w-0">
@@ -304,7 +320,17 @@ export function ConversationView({
           {!isChat && seen && <div className="text-right text-[10px] text-slate-400">Seen</div>}
         </div>
 
-        <Composer onSend={handleSend} onTyping={isChat ? handleTyping : undefined} />
+        {lockedToOther && (
+          <div className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+            Assigned to <span className="font-medium">{lockOwnerName}</span>. Reassign it to yourself to reply.
+          </div>
+        )}
+        <Composer
+          onSend={handleSend}
+          onTyping={isChat && !lockedToOther ? handleTyping : undefined}
+          disabled={lockedToOther}
+          placeholder={lockedToOther ? "Reassign to yourself to reply…" : "Reply…"}
+        />
       </div>
 
       <div className="w-64 shrink-0 overflow-y-auto border-l border-slate-200 bg-white">

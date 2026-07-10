@@ -54,6 +54,9 @@ export function Composer({
       await onSend(trimmed);
       setText("");
       stopTypingLoop();
+    } catch {
+      // Send failed (e.g. the conversation got claimed by someone else) — keep the text so the
+      // user can retry or copy it; the parent surfaces the actual error message.
     } finally {
       setSending(false);
     }

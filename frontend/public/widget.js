@@ -84,4 +84,29 @@
   });
 
   document.body.appendChild(button);
+
+  // Eager iframe: boots the widget on page load so page views are tracked from the first
+  // visit and the unread badge works before the widget is ever opened.
+  var eagerFrame = ensureIframe();
+
+  // Debounced: one hash navigation fires both popstate AND hashchange (popstate first, before
+  // the host page updates its title). Coalescing them into a single delayed read reports each
+  // page once, with its settled title.
+  var pageTimer = null;
+  function postPage() {
+    if (pageTimer) clearTimeout(pageTimer);
+    pageTimer = setTimeout(function () {
+      pageTimer = null;
+      var f = ensureIframe();
+      if (!f.contentWindow) return;
+      f.contentWindow.postMessage({ type: "sp:page", url: window.location.href, title: document.title }, origin);
+    }, 80);
+  }
+  eagerFrame.addEventListener("load", postPage);
+  var origPush = history.pushState;
+  var origReplace = history.replaceState;
+  history.pushState = function () { origPush.apply(this, arguments); postPage(); };
+  history.replaceState = function () { origReplace.apply(this, arguments); postPage(); };
+  window.addEventListener("popstate", postPage);
+  window.addEventListener("hashchange", postPage);
 })();

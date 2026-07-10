@@ -2183,7 +2183,7 @@ In `SettingsPage.tsx`: `import { SlaSection } from "./SlaSection";` and render `
 - postMessage contract: loader → iframe `{type:"sp:page", url, title}`
 - Table `contact_events(id, workspace_id, contact_id, type, url, title, created_at)`
 
-- [ ] **Step 1: Migration `backend/migrations/0007_contact_events.sql`:**
+- [x] **Step 1: Migration `backend/migrations/0007_contact_events.sql`:**
 
 ```sql
 CREATE TABLE contact_events (
@@ -2200,7 +2200,7 @@ CREATE INDEX idx_events_contact ON contact_events (contact_id, created_at DESC);
 
 Apply locally.
 
-- [ ] **Step 2: Events endpoint.** In `backend/src/widget/widget.api.ts` add (import `CONTACT_EVENT` from const):
+- [x] **Step 2: Events endpoint.** In `backend/src/widget/widget.api.ts` add (import `CONTACT_EVENT` from const):
 
 ```ts
 const EventBody = z.object({
@@ -2229,7 +2229,7 @@ widgetApi.post("/events", widgetAuthMiddleware, validate(EventBody, "json"), wid
 });
 ```
 
-- [ ] **Step 3: Loader — eager iframe + page reporting.** In `frontend/public/widget.js`, replace the final line `document.body.appendChild(button);` with:
+- [x] **Step 3: Loader — eager iframe + page reporting.** In `frontend/public/widget.js`, replace the final line `document.body.appendChild(button);` with:
 
 ```js
   document.body.appendChild(button);
@@ -2254,7 +2254,7 @@ widgetApi.post("/events", widgetAuthMiddleware, validate(EventBody, "json"), wid
 
 (`ensureIframe` already guards against double-creation; `display:none` stays until opened.)
 
-- [ ] **Step 4: Iframe side.** In `frontend/src/widget/WidgetApp.tsx` add after the `totalUnread` postMessage effect:
+- [x] **Step 4: Iframe side.** In `frontend/src/widget/WidgetApp.tsx` add after the `totalUnread` postMessage effect:
 
 ```tsx
   // Page views arrive from the host-page loader via postMessage; the loader knows the page,
@@ -2287,7 +2287,7 @@ widgetApi.post("/events", widgetAuthMiddleware, validate(EventBody, "json"), wid
   }, [booted]);
 ```
 
-- [ ] **Step 5: demo.html fake pages.** In `frontend/public/demo.html`, inside `.hero` after the `<h1>`, add a tiny nav and swap logic:
+- [x] **Step 5: demo.html fake pages.** In `frontend/public/demo.html`, inside `.hero` after the `<h1>`, add a tiny nav and swap logic:
 
 ```html
       <nav style="margin-bottom: 24px; display: flex; gap: 12px; justify-content: center">
@@ -2315,9 +2315,9 @@ and extend the bottom script (inside the IIFE, after the widget injection):
         renderPage();
 ```
 
-- [ ] **Step 6: Local check.** `pnpm --dir frontend build` then wrangler dev; open `http://localhost:8787/demo.html?key=<widgetKey of a local ws>` in a browser (orchestrator) or drive via Playwright ad hoc; click Pricing/Features; then `npx wrangler d1 execute super-profile --local --command "SELECT url, title FROM contact_events ORDER BY created_at DESC LIMIT 5"` → the visited hashes appear. Existing e2e must stay green — run `cd e2e && BASE_URL=http://localhost:8787 DEBUG_AUTH_SECRET=<v> npx playwright test` (the widget specs exercise the now-eager iframe; fix any selector fallout — the iframe now exists pre-open but stays hidden, so `frameLocator` calls that used to implicitly wait for creation still work).
+- [x] **Step 6: Local check.** `pnpm --dir frontend build` then wrangler dev; open `http://localhost:8787/demo.html?key=<widgetKey of a local ws>` in a browser (orchestrator) or drive via Playwright ad hoc; click Pricing/Features; then `npx wrangler d1 execute super-profile --local --command "SELECT url, title FROM contact_events ORDER BY created_at DESC LIMIT 5"` → the visited hashes appear. Existing e2e must stay green — run `cd e2e && BASE_URL=http://localhost:8787 DEBUG_AUTH_SECRET=<v> npx playwright test` (the widget specs exercise the now-eager iframe; fix any selector fallout — the iframe now exists pre-open but stays hidden, so `frameLocator` calls that used to implicitly wait for creation still work).
 
-- [ ] **Step 7: Commit**: `git add -A && git commit -m "feat(timeline): page-view capture — eager widget iframe, sp:page bridge, contact_events"`
+- [x] **Step 7: Commit**: `git add -A && git commit -m "feat(timeline): page-view capture — eager widget iframe, sp:page bridge, contact_events"`
 
 ---
 

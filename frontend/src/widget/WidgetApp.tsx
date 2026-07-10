@@ -111,6 +111,39 @@ export default function WidgetApp() {
     window.parent.postMessage({ type: "sp:unread", count: totalUnread }, "*");
   }, [totalUnread]);
 
+  // Page views arrive from the host-page loader via postMessage; the loader knows the page,
+  // this iframe knows the identity (widget token). Queue until booted, throttle repeats.
+  const pageQueueRef = useRef<{ url: string; title: string }[]>([]);
+  const lastPageRef = useRef<{ url: string; title: string; at: number }>({ url: "", title: "", at: 0 });
+  useEffect(() => {
+    function flush() {
+      if (!booted) return;
+      while (pageQueueRef.current.length) {
+        const p = pageQueueRef.current.shift()!;
+        const t = Date.now();
+        // The loader debounces popstate/hashchange into one settled report per navigation, so a
+        // plain per-URL throttle is enough here.
+        if (p.url === lastPageRef.current.url && t - lastPageRef.current.at < 30_000) {
+          continue;
+        }
+        lastPageRef.current = { url: p.url, title: p.title, at: t };
+        widgetApi("/api/v1/widget/events", {
+          method: "POST",
+          body: { type: "PAGE_VIEW", url: p.url, title: p.title || undefined },
+        }).catch(() => {});
+      }
+    }
+    function onMessage(e: MessageEvent) {
+      const d = e.data as { type?: string; url?: string; title?: string } | null;
+      if (!d || d.type !== "sp:page" || e.source !== window.parent) return;
+      pageQueueRef.current.push({ url: String(d.url ?? "").slice(0, 2000), title: String(d.title ?? "").slice(0, 300) });
+      flush();
+    }
+    window.addEventListener("message", onMessage);
+    flush(); // drain anything that arrived before boot completed
+    return () => window.removeEventListener("message", onMessage);
+  }, [booted]);
+
   const handleCreateConversation = useCallback(
     async (body: string, profile?: { name?: string; email?: string }) => {
       const data = await widgetApi<{ conversation: ConversationSnapshot }>("/api/v1/widget/conversations", {

@@ -40,6 +40,12 @@
   <body>
     <div class="hero">
       <h1>Acme Corp</h1>
+      <nav style="margin-bottom: 24px; display: flex; gap: 12px; justify-content: center">
+        <a href="#home" style="color: #4f46e5">Home</a>
+        <a href="#pricing" style="color: #4f46e5">Pricing</a>
+        <a href="#features" style="color: #4f46e5">Features</a>
+      </nav>
+      <p id="page-blurb">Welcome to the Acme Corp demo storefront.</p>
       <p>
         This is a demo storefront showing the SuperProfile chat widget embedded on an ordinary
         website — click the chat bubble in the bottom-right corner to start a conversation.
@@ -65,6 +71,19 @@
         s.src = "/widget.js";
         s.setAttribute("data-widget-key", key);
         document.body.appendChild(s);
+
+        var blurbs = {
+          "#home": ["Acme Corp — demo store", "Welcome to the Acme Corp demo storefront."],
+          "#pricing": ["Pricing — Acme Corp", "Pro is $9/month. Enterprise is a conversation."],
+          "#features": ["Features — Acme Corp", "Everything you expect, and a chat widget."],
+        };
+        function renderPage() {
+          var page = blurbs[window.location.hash] || blurbs["#home"];
+          document.title = page[0];
+          document.getElementById("page-blurb").textContent = page[1];
+        }
+        window.addEventListener("hashchange", renderPage);
+        renderPage();
       })();
     </script>
   </body>

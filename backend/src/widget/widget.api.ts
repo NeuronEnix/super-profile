@@ -6,7 +6,7 @@ import { validate } from "../middleware/validate";
 import { widgetAuthMiddleware } from "../middleware/widget-auth";
 import { rateLimit } from "../middleware/rate-limit";
 import { now, uuidv7 } from "../common/id";
-import { RATE_LIMIT } from "../common/const";
+import { CONTACT_EVENT, RATE_LIMIT } from "../common/const";
 import { signWidgetToken } from "../auth/token";
 import { sendMessage, markRead } from "../realtime/hub";
 import { triggerAiTurn } from "../ai/handler";
@@ -32,6 +32,12 @@ const CreateConversationBody = z.object({
   email: z.string().email().optional(),
 });
 const SuggestQuery = z.object({ q: z.string().min(1).max(200) });
+const EventBody = z.object({
+  type: z.literal(CONTACT_EVENT.TYPE.PAGE_VIEW),
+  url: z.string().min(1).max(2000),
+  title: z.string().max(300).optional(),
+});
+const widgetEventLimit = rateLimit(widgetMsgKey, 30, 60);
 
 const CONVERSATION_COLS =
   "id, workspace_id as workspaceId, contact_id as contactId, channel, status, subject, last_message_at as lastMessageAt, last_message_preview as lastMessagePreview, message_count as messageCount, contact_last_read_at as contactLastReadAt, created_at as createdAt, updated_at as updatedAt";
@@ -178,4 +184,22 @@ widgetApi.get("/suggest", widgetAuthMiddleware, validate(SuggestQuery, "query"),
   const { q } = c.get("body") as z.infer<typeof SuggestQuery>;
   const hits = await searchArticles(c.env.DB, workspaceId, q, 3);
   return ok(c, { results: hits });
+});
+
+widgetApi.post("/events", widgetAuthMiddleware, validate(EventBody, "json"), widgetEventLimit, async (c) => {
+  const workspaceId = c.get("widgetWorkspaceId");
+  const userId = c.get("widgetUserId");
+  const { url, title } = c.get("body") as z.infer<typeof EventBody>;
+  const contact = await c.env.DB.prepare("SELECT id FROM contacts WHERE workspace_id=?1 AND user_id=?2")
+    .bind(workspaceId, userId)
+    .first<{ id: string }>();
+  if (!contact) return ok(c); // boot creates the contact; a missing row is a razor-thin race — drop the event
+  const ts = now();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "INSERT INTO contact_events (id, workspace_id, contact_id, type, url, title, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+    ).bind(uuidv7(), workspaceId, contact.id, CONTACT_EVENT.TYPE.PAGE_VIEW, url, title ?? null, ts),
+    c.env.DB.prepare("UPDATE contacts SET last_seen_at=?1 WHERE id=?2").bind(ts, contact.id),
+  ]);
+  return ok(c);
 });

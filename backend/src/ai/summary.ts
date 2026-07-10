@@ -22,7 +22,7 @@ function buildUserPrompt(previousSummary: string | null, messages: MessageRow[])
   return `${prefix}Conversation (newest last):\n${lines}`;
 }
 
-function runWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+export function runWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("AI_TIMEOUT")), ms);
     promise.then(

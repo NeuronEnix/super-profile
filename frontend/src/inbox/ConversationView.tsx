@@ -3,7 +3,7 @@ import { api, ApiError } from "../lib/api";
 import { useToast } from "../components/Toast";
 import { ContactPanel } from "./ContactPanel";
 import { SummaryPanel } from "./SummaryPanel";
-import { Composer } from "./Composer";
+import { Composer, type DraftSuggestion } from "./Composer";
 import { Ticks, TypingDots, type TickState } from "../components/MessageStatus";
 import type { Conversation, ConversationSnapshot, Member, Message, WsEvent } from "../lib/types";
 
@@ -191,6 +191,17 @@ export function ConversationView({
     send({ type: "TYPING", conversationId, state: "START" });
   }, [send, conversationId]);
 
+  const handleSuggest = useCallback(async (): Promise<DraftSuggestion> => {
+    try {
+      return await api<DraftSuggestion>(`/api/v1/ws/${wsId}/conversations/${conversationId}/suggest-reply`, {
+        method: "POST",
+      });
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : "Something went wrong");
+      throw err; // the composer just clears its "Thinking…" state
+    }
+  }, [wsId, conversationId, showError]);
+
   if (!conversation) {
     return <div className="flex flex-1 items-center justify-center text-sm text-slate-400">Loading…</div>;
   }
@@ -328,6 +339,7 @@ export function ConversationView({
         <Composer
           onSend={handleSend}
           onTyping={isChat && !lockedToOther ? handleTyping : undefined}
+          onSuggest={handleSuggest}
           disabled={lockedToOther}
           placeholder={lockedToOther ? "Reassign to yourself to reply…" : "Reply…"}
         />

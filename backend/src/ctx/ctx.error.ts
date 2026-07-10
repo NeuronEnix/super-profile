@@ -105,7 +105,7 @@ export namespace ctxErr {
 
   export const ai = {
     unavailable: (e?: TResErr) =>
-      new CtxError({ name: "AI_UNAVAILABLE", msg: "AI summary unavailable right now", ...e }),
+      new CtxError({ name: "AI_UNAVAILABLE", msg: "AI is unavailable right now, try again shortly", ...e }),
   };
 
   export const domain = {

@@ -1,18 +1,24 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
+export type DraftSuggestion = { draft: string; sources: { id: string; title: string; slug: string }[] };
+
 export function Composer({
   onSend,
   onTyping,
+  onSuggest,
   disabled,
   placeholder = "Reply…",
 }: {
   onSend: (text: string) => Promise<void> | void;
   onTyping?: () => void;
+  onSuggest?: () => Promise<DraftSuggestion>;
   disabled?: boolean;
   placeholder?: string;
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [sources, setSources] = useState<DraftSuggestion["sources"] | null>(null);
   const dirtyRef = useRef(false);
   const loopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -46,6 +52,20 @@ export function Composer({
 
   useEffect(() => () => stopTypingLoop(), []);
 
+  async function handleSuggest() {
+    if (!onSuggest || suggesting || sending) return;
+    setSuggesting(true);
+    try {
+      const { draft, sources: used } = await onSuggest();
+      setText(draft);
+      setSources(used);
+    } catch {
+      // The parent surfaces the error toast; nothing to roll back here.
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
   async function handleSend() {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
@@ -53,6 +73,7 @@ export function Composer({
     try {
       await onSend(trimmed);
       setText("");
+      setSources(null);
       stopTypingLoop();
     } catch {
       // Send failed (e.g. the conversation got claimed by someone else) — keep the text so the
@@ -83,15 +104,33 @@ export function Composer({
         rows={2}
         className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-50"
       />
+      {sources && (
+        <p className="mt-1 text-[11px] text-violet-600">
+          ✨ AI draft{sources.length > 0 && <> · based on: {sources.map((s) => s.title).join(", ")}</>} — review
+          before sending
+        </p>
+      )}
       <div className="mt-1.5 flex items-center justify-between">
         <span className="text-[11px] text-slate-400">Enter to send, Shift+Enter for a new line</span>
-        <button
-          onClick={handleSend}
-          disabled={disabled || sending || !text.trim()}
-          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
-        >
-          Send
-        </button>
+        <div className="flex items-center gap-2">
+          {onSuggest && (
+            <button
+              onClick={handleSuggest}
+              disabled={disabled || sending || suggesting}
+              title="Draft a reply from the conversation and your knowledge base"
+              className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:bg-violet-100 disabled:opacity-50"
+            >
+              {suggesting ? "Thinking…" : "✨ Suggest reply"}
+            </button>
+          )}
+          <button
+            onClick={handleSend}
+            disabled={disabled || sending || !text.trim()}
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
+          >
+            Send
+          </button>
+        </div>
       </div>
     </div>
   );

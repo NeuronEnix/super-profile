@@ -126,7 +126,7 @@ and inside `AI_CONF` (after the `HANDLER` line, before ` } as const`):
 
 - [x] **Step 7: Green check.** Run: `cd backend && pnpm test` — all suites pass (110 tests, nothing new yet). NOTE: the worker won't typecheck/deploy until Task 4 exports `KbSyncRunner`; that's expected — do NOT deploy in this task.
 
-- [ ] **Step 8: Commit** (orchestrator): `git add -A && git commit -m "feat(kb-sync): schema, consts, config and error scaffolding"`
+- [x] **Step 8: Commit** (orchestrator): `git add -A && git commit -m "feat(kb-sync): schema, consts, config and error scaffolding"`
 
 ---
 

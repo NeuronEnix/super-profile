@@ -224,6 +224,7 @@ conversationsApi.post("/conversations/:id/messages", validate(PostMessageBody, "
 
 conversationsApi.patch("/conversations/:id", validate(PatchConversationBody, "json"), async (c) => {
   const { workspaceId } = c.get("member");
+  const userId = c.get("userId");
   const id = c.req.param("id");
   if (!id) throw ctxErr.conversation.notFound();
   const patch = c.get("body") as z.infer<typeof PatchConversationBody>;
@@ -272,13 +273,27 @@ conversationsApi.patch("/conversations/:id", validate(PatchConversationBody, "js
     } else if (patch.status === CONVERSATION.STATUS.OPEN) systemMessages.push("Reopened");
   }
   // Resolving releases the assignment: a closed conversation is open to the whole team, and
-  // whoever replies next (reopening it) claims it fresh. Skip when the caller set assignee itself.
+  // whoever reopens it (below) claims it fresh. Skip when the caller set assignee itself.
   if (
     patch.status === CONVERSATION.STATUS.RESOLVED &&
     patch.assigneeId === undefined &&
     current.assigneeId !== null
   ) {
     sets.push("assignee_id=NULL");
+  }
+  // Reopening an unassigned conversation (the state resolving leaves it in) auto-assigns it to
+  // whoever reopened it — mirroring the auto-claim that happens when an agent reopens by replying.
+  if (
+    patch.status === CONVERSATION.STATUS.OPEN &&
+    patch.assigneeId === undefined &&
+    current.assigneeId === null
+  ) {
+    binds.push(userId);
+    sets.push(`assignee_id=?${binds.length}`);
+    const me = await c.env.DB.prepare("SELECT name, email FROM users WHERE id=?1")
+      .bind(userId)
+      .first<{ name: string | null; email: string | null }>();
+    systemMessages.push(`Assigned to ${me?.name ?? me?.email ?? "you"}`);
   }
   if (patch.snoozedUntil !== undefined) {
     binds.push(patch.snoozedUntil);

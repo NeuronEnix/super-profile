@@ -1,11 +1,14 @@
-import { CONVERSATION } from "../common/const";
+import { CONVERSATION, MESSAGE } from "../common/const";
 
 export function truncatePreview(text: string, max = 120): string {
   return text.length > max ? text.slice(0, max) : text;
 }
 
+// Any human reply (a contact OR an agent) to a non-open conversation reopens it. In particular an
+// agent replying to a resolved ticket reopens it — and, since resolving unassigns, the message
+// UPDATE's auto-assign then claims it for that agent. Only SYSTEM notes never reopen.
 export function shouldReopen(senderType: string, currentStatus: string): boolean {
-  return senderType === "CONTACT" && currentStatus !== CONVERSATION.STATUS.OPEN;
+  return senderType !== MESSAGE.SENDER_TYPE.SYSTEM && currentStatus !== CONVERSATION.STATUS.OPEN;
 }
 
 /**

@@ -11,9 +11,10 @@ export default function CreateWorkspace() {
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { refetchMe } = useAuth();
+  const { refetchMe, workspaces } = useAuth();
   const { showError } = useToast();
   const navigate = useNavigate();
+  const hasWorkspaces = workspaces.length > 0;
 
   // The handle auto-tracks the name until the user edits it directly.
   function onNameChange(value: string) {
@@ -50,7 +51,9 @@ export default function CreateWorkspace() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-1 text-lg font-semibold text-slate-900">Create your workspace</h1>
+        <h1 className="mb-1 text-lg font-semibold text-slate-900">
+          {hasWorkspaces ? "Create a new workspace" : "Create your workspace"}
+        </h1>
         <p className="mb-6 text-sm text-slate-500">This is where your team and customer conversations live.</p>
 
         <label className="mb-1 block text-xs font-medium text-slate-600">Workspace name</label>
@@ -93,6 +96,15 @@ export default function CreateWorkspace() {
         >
           {loading ? "Creating…" : "Create workspace"}
         </button>
+        {hasWorkspaces && (
+          <button
+            type="button"
+            onClick={() => navigate(`/w/${workspaces[0].id}`)}
+            className="mt-2 w-full rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-700"
+          >
+            Cancel
+          </button>
+        )}
       </form>
     </div>
   );

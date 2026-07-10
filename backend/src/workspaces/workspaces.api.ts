@@ -20,8 +20,8 @@ const CreateWorkspaceBody = z.object({
     .max(40)
     .regex(SLUG_REGEX, "Use lowercase letters, numbers, dots and hyphens; start with a letter, don't end with a dot or hyphen"),
 });
+// The workspace name is permanent once created — only presentational settings are editable here.
 const PatchWorkspaceBody = z.object({
-  name: z.string().min(1).max(80).optional(),
   widgetColor: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
@@ -34,21 +34,28 @@ workspacesApi.use("*", authMiddleware);
 workspacesApi.post("/", validate(CreateWorkspaceBody, "json"), async (c) => {
   const { name, slug } = c.get("body") as z.infer<typeof CreateWorkspaceBody>;
   const userId = c.get("userId");
-  const taken = await c.env.DB.prepare("SELECT 1 FROM workspaces WHERE slug=?1").bind(slug).first();
-  if (taken) throw ctxErr.workspace.slugTaken();
+  // Both the handle and the display name are globally unique. Name uniqueness is case-insensitive
+  // and trim-normalized so "Acme" / "acme " can't both exist. Neither is editable after creation.
+  const trimmedName = name.trim();
+  if (await c.env.DB.prepare("SELECT 1 FROM workspaces WHERE slug=?1").bind(slug).first()) {
+    throw ctxErr.workspace.slugTaken();
+  }
+  if (await c.env.DB.prepare("SELECT 1 FROM workspaces WHERE lower(name)=lower(?1)").bind(trimmedName).first()) {
+    throw ctxErr.workspace.nameTaken();
+  }
   const workspaceId = uuidv7();
   const widgetKey = `wk_${uuidv7().replaceAll("-", "")}`;
   const ts = now();
   await c.env.DB.batch([
     c.env.DB.prepare(
       "INSERT INTO workspaces (id, name, slug, widget_key, widget_color, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-    ).bind(workspaceId, name, slug, widgetKey, "#4f46e5", userId, ts),
+    ).bind(workspaceId, trimmedName, slug, widgetKey, "#4f46e5", userId, ts),
     c.env.DB.prepare(
       "INSERT INTO workspace_members (workspace_id, user_id, role, created_at) VALUES (?1, ?2, ?3, ?4)",
     ).bind(workspaceId, userId, ROLE.ADMIN, ts),
   ]);
   return ok(c, {
-    workspace: { id: workspaceId, name, slug, widgetKey, widgetColor: "#4f46e5" },
+    workspace: { id: workspaceId, name: trimmedName, slug, widgetKey, widgetColor: "#4f46e5" },
   });
 });
 
@@ -76,10 +83,6 @@ workspaceSettingsApi.patch("/", requireAdmin, validate(PatchWorkspaceBody, "json
 
   const sets: string[] = [];
   const binds: unknown[] = [];
-  if (patch.name !== undefined) {
-    sets.push(`name=?${sets.length + 1}`);
-    binds.push(patch.name);
-  }
   if (patch.widgetColor !== undefined) {
     sets.push(`widget_color=?${sets.length + 1}`);
     binds.push(patch.widgetColor);

@@ -460,3 +460,19 @@ was fixed, unit/e2e-verified locally, deployed, and re-verified against prod in 
   reopening via a reply re-claims it. Lock predicate `isAssignedToOther()` is unit-tested; the
   disabled-composer visual for the two-agent case wasn't shown live (ban-gera has one member and I
   won't fake prod data) — offer stands to invite a second agent for a live demo.
+- **Reopen semantics (agent side).** An agent reply to a resolved/snoozed ticket now reopens it
+  (`shouldReopen` covers any non-SYSTEM sender), and since resolving unassigns, the message's
+  auto-assign then claims it for the replying agent. The "Reopen" button follows the same rule:
+  reopening an *unassigned* conversation assigns it to whoever reopened it (with an "Assigned to X"
+  system note). So "resolve → unassigned; whoever reopens (by button or by replying) owns it."
+- **Workspaces are permanent + globally unique.** Name and handle can't be changed after creation
+  (settings PATCH no longer accepts `name`; the Settings UI shows them read-only). Both are globally
+  unique — handle already had a DB constraint; name uniqueness is enforced case-insensitively and
+  trim-normalized at create (`WORKSPACE_NAME_TAKEN`). There is no delete endpoint, so a created
+  workspace is permanent.
+- **Multi-workspace.** Added a "+ New workspace" button under the sidebar switcher → `/new-workspace`
+  (the create form, now reachable with existing workspaces, gets a Cancel). Switching between
+  workspaces already worked via the dropdown.
+- **Inbox card status rail.** Each conversation card now has a colored left rail + tiny capsule:
+  grey "Unassigned", orange with the assignee's name ("Me" for you) when in progress, green "Closed"
+  when resolved. Resolved wins over assignment (a closed-but-previously-assigned ticket shows green).

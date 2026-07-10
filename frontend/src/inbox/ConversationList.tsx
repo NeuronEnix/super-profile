@@ -18,6 +18,27 @@ function relativeTime(ts: number): string {
   return `${Math.round(diffHr / 24)}d ago`;
 }
 
+/**
+ * The colored left rail + optional capsule encode a conversation's state at a glance:
+ * green = closed (resolved), orange = in progress (assigned — capsule names the agent),
+ * grey = unassigned/open.
+ */
+function statusAccent(
+  c: Conversation,
+  members: Member[],
+  currentUserId: string | undefined,
+): { barColor: string; capsule: { text: string; className: string } } {
+  if (c.status === "RESOLVED") {
+    return { barColor: "#10b981", capsule: { text: "Closed", className: "bg-emerald-100 text-emerald-700" } };
+  }
+  if (c.assigneeId) {
+    const assignee = members.find((m) => m.userId === c.assigneeId);
+    const name = c.assigneeId === currentUserId ? "Me" : (assignee?.name ?? assignee?.email ?? "Assigned");
+    return { barColor: "#fb923c", capsule: { text: name, className: "bg-orange-100 text-orange-700" } };
+  }
+  return { barColor: "#64748b", capsule: { text: "Unassigned", className: "bg-slate-100 text-slate-500" } };
+}
+
 export function ConversationList({
   conversations,
   loading,
@@ -96,33 +117,46 @@ export function ConversationList({
         {!loading && conversations.length === 0 && (
           <div className="p-6 text-center text-xs text-slate-400">No conversations here.</div>
         )}
-        {conversations.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => onSelect(c.id)}
-            className={`block w-full border-b border-slate-100 px-3 py-2.5 text-left transition ${
-              selectedId === c.id ? "bg-indigo-50" : "hover:bg-slate-50"
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-sm font-medium text-slate-900">
-                {c.contact.name ?? c.contact.email ?? "Anonymous visitor"}
-              </span>
-              <span className="shrink-0 text-[11px] text-slate-400">{relativeTime(c.lastMessageAt)}</span>
-            </div>
-            <div className="mt-0.5 flex items-center gap-1.5">
-              <span
-                className={`shrink-0 rounded px-1 text-[10px] font-medium uppercase tracking-wide ${
-                  c.channel === "EMAIL" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700"
-                }`}
-              >
-                {c.channel}
-              </span>
-              <span className="truncate text-xs text-slate-500">{c.subject || c.lastMessagePreview}</span>
-              {c.unread && <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-600" />}
-            </div>
-          </button>
-        ))}
+        {conversations.map((c) => {
+          const accent = statusAccent(c, members, currentUserId);
+          return (
+            <button
+              key={c.id}
+              onClick={() => onSelect(c.id)}
+              style={{ borderLeft: `4px solid ${accent.barColor}` }}
+              className={`block w-full border-b border-slate-100 px-3 py-2.5 text-left transition ${
+                selectedId === c.id ? "bg-indigo-50" : "hover:bg-slate-50"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-medium text-slate-900">
+                  {c.contact.name ?? c.contact.email ?? "Anonymous visitor"}
+                </span>
+                <span className="shrink-0 text-[11px] text-slate-400">{relativeTime(c.lastMessageAt)}</span>
+              </div>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <span
+                  className={`shrink-0 rounded px-1 text-[10px] font-medium uppercase tracking-wide ${
+                    c.channel === "EMAIL" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700"
+                  }`}
+                >
+                  {c.channel}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-xs text-slate-500">
+                  {c.subject || c.lastMessagePreview}
+                </span>
+                {accent.capsule && (
+                  <span
+                    className={`max-w-[96px] shrink-0 truncate rounded-full px-1.5 py-px text-[9px] font-medium ${accent.capsule.className}`}
+                  >
+                    {accent.capsule.text}
+                  </span>
+                )}
+                {c.unread && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-600" />}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

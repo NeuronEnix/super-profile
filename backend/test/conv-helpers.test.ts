@@ -34,12 +34,17 @@ describe("shouldReopen", () => {
     expect(shouldReopen("CONTACT", "RESOLVED")).toBe(true);
   });
 
-  it("does not reopen an already-OPEN conversation", () => {
-    expect(shouldReopen("CONTACT", "OPEN")).toBe(false);
+  it("reopens when an AGENT replies to a RESOLVED conversation (they then auto-claim it)", () => {
+    expect(shouldReopen("AGENT", "RESOLVED")).toBe(true);
+    expect(shouldReopen("AGENT", "SNOOZED")).toBe(true);
   });
 
-  it("does not reopen for AGENT or SYSTEM senders", () => {
-    expect(shouldReopen("AGENT", "SNOOZED")).toBe(false);
+  it("does not reopen an already-OPEN conversation", () => {
+    expect(shouldReopen("CONTACT", "OPEN")).toBe(false);
+    expect(shouldReopen("AGENT", "OPEN")).toBe(false);
+  });
+
+  it("does not reopen for SYSTEM notes", () => {
     expect(shouldReopen("SYSTEM", "RESOLVED")).toBe(false);
   });
 });

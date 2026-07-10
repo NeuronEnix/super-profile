@@ -49,6 +49,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/new-workspace"
+        element={
+          <RequireAuth>
+            <CreateWorkspace />
+          </RequireAuth>
+        }
+      />
+      <Route
         path="/w/:wsId"
         element={
           <RequireAuth>

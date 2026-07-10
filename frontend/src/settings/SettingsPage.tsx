@@ -7,14 +7,13 @@ import type { Invite, Member, Role } from "../lib/types";
 
 export default function SettingsPage() {
   const { wsId } = useParams();
-  const { user, workspaces, refetchMe } = useAuth();
+  const { user, workspaces } = useAuth();
   const { showError } = useToast();
   const ws = workspaces.find((w) => w.id === wsId);
   const isAdmin = ws?.role === "ADMIN";
 
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
-  const [wsName, setWsName] = useState(ws?.name ?? "");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<Role>("AGENT");
   const [busy, setBusy] = useState(false);
@@ -41,24 +40,6 @@ export default function SettingsPage() {
   useEffect(() => {
     load().catch((err) => showError(err instanceof ApiError ? err.message : "Something went wrong"));
   }, [load, showError]);
-
-  useEffect(() => {
-    setWsName(ws?.name ?? "");
-  }, [ws?.name]);
-
-  async function handleRenameWorkspace(e: FormEvent) {
-    e.preventDefault();
-    if (!wsId) return;
-    setBusy(true);
-    try {
-      await api(`/api/v1/ws/${wsId}`, { method: "PATCH", body: { name: wsName } });
-      await refetchMe();
-    } catch (err) {
-      showError(err instanceof ApiError ? err.message : "Something went wrong");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function handleInvite(e: FormEvent) {
     e.preventDefault();
@@ -149,24 +130,18 @@ export default function SettingsPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Workspace</h2>
-        <form onSubmit={handleRenameWorkspace} className="flex gap-2">
-          <input
-            value={wsName}
-            onChange={(e) => setWsName(e.target.value)}
-            disabled={!isAdmin}
-            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
-          />
-          {isAdmin && (
-            <button
-              type="submit"
-              disabled={busy}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-            >
-              Save
-            </button>
-          )}
-        </form>
+        <h2 className="mb-1 text-sm font-semibold text-slate-900">Workspace</h2>
+        <p className="mb-3 text-xs text-slate-400">The name and handle are permanent — they can't be changed once the workspace is created.</p>
+        <dl className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white text-sm">
+          <div className="flex items-center justify-between px-4 py-2.5">
+            <dt className="text-slate-500">Name</dt>
+            <dd className="font-medium text-slate-900">{ws.name}</dd>
+          </div>
+          <div className="flex items-center justify-between px-4 py-2.5">
+            <dt className="text-slate-500">Handle</dt>
+            <dd className="font-mono text-slate-900">{ws.slug}</dd>
+          </div>
+        </dl>
       </section>
 
       <section>

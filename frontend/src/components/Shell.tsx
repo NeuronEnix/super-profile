@@ -29,7 +29,7 @@ export default function Shell() {
   return (
     <div className="flex min-h-screen bg-slate-50 text-sm text-slate-800">
       <aside className="flex w-56 shrink-0 flex-col border-r border-slate-200 bg-white">
-        <div className="border-b border-slate-200 p-3">
+        <div className="space-y-1.5 border-b border-slate-200 p-3">
           <select
             aria-label="Workspace"
             value={currentWs?.id ?? ""}
@@ -42,6 +42,12 @@ export default function Shell() {
               </option>
             ))}
           </select>
+          <button
+            onClick={() => navigate("/new-workspace")}
+            className="w-full rounded-md border border-dashed border-slate-300 px-2 py-1.5 text-xs font-medium text-slate-500 hover:border-indigo-400 hover:text-indigo-600"
+          >
+            + New workspace
+          </button>
         </div>
         <nav className="flex-1 space-y-0.5 p-2">
           {navItems.map((item) => (

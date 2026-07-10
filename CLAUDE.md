@@ -84,11 +84,24 @@ cd backend && pnpm test                       # vitest unit
 cd e2e && BASE_URL=http://localhost:8787 pnpm test   # Playwright (BASE_URL=prod URL for smoke)
 ```
 
+## Tests never make third-party requests (hard rule — no exceptions)
+
+Automated tests (vitest AND Playwright/e2e) must **never** hit an external paid/rate-limited
+service — Resend above all, but also any other third-party API. Every such send costs real
+quota (Resend is ~100 emails/day) and bounces at fake test addresses hurt the sending domain's
+reputation. Mock/mimic the boundary instead: the email path already supports this — the
+`X-Debug-Auth` header makes `/auth/magic-link` and `/ws/:wsId/invites` echo the token and send
+**nothing**, and `logSender()` (used when `RESEND_API_KEY` is unset) logs instead of sending.
+The inbound simulator (`POST /api/v1/email/inbound` + `X-Inbound-Secret`) is the mimic for the
+receive side. If a boundary genuinely can't be mimicked, **skip the test** and note why — never
+reach for the real service to make a test pass. A one-off manual send to verify prod deliverability
+(done by hand, not in a test) is fine; a test suite that sends is not.
+
 ## Verification protocol (before claiming anything works)
 
 Evidence before assertions: run the command, read the output. UI features: verify in a real
 browser (Playwright or chrome MCP) — click it, see it. Realtime: two browser contexts
-(widget + dashboard) exchanging messages. Email: simulator round-trip + at least one real Resend
-send (check via Resend API `GET /emails/{id}`). Deployed = re-run the E2E smoke against the
-prod URL after deploy. The final task in the plan has the full acceptance matrix mapping to the
-assignment's 7 required features.
+(widget + dashboard) exchanging messages. Email: simulator round-trip only in automated tests
+(no real sends — see the hard rule above); verify real deliverability once, by hand, via the prod
+UI if needed. Deployed = re-run the E2E smoke against the prod URL after deploy. The final task in
+the plan has the full acceptance matrix mapping to the assignment's 7 required features.

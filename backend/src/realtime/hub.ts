@@ -360,10 +360,11 @@ export class WorkspaceHub {
                status=?3, snoozed_until=CASE WHEN ?3='OPEN' THEN NULL ELSE snoozed_until END,
                agent_last_read_at=CASE WHEN ?5='AGENT' THEN ?1 ELSE agent_last_read_at END,
                contact_last_read_at=CASE WHEN ?5='CONTACT' THEN ?1 ELSE contact_last_read_at END,
+               assignee_id=CASE WHEN ?5='AGENT' AND assignee_id IS NULL THEN ?6 ELSE assignee_id END,
                updated_at=?1
            WHERE id=?4`,
         )
-        .bind(ts, truncatePreview(input.bodyText), nextStatus, conversationId, input.senderType),
+        .bind(ts, truncatePreview(input.bodyText), nextStatus, conversationId, input.senderType, input.senderId ?? null),
     ];
 
     let reopenMessageId: string | null = null;

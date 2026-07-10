@@ -95,21 +95,19 @@ reconnects; inbound email dedup for webhook retries.
       "SuperProfile"); the API is also aliased at **https://api-sp.hyugorix.com** (same Worker).
       Both are Workers Custom Domains provisioned by `wrangler deploy` (auto DNS + TLS), both
       single-level subdomains, apex untouched. `APP_URL` now points at `sp.hyugorix.com` so magic
-      links use it. The old `super-profile.kaushikrb909.workers.dev` URL is now disabled (wrangler's
-      default once a custom domain exists) — if you want it back as a fallback, say so and I'll add
-      `"workers_dev": true` to `wrangler.jsonc`. README/e2e/docs all updated to the new URL.
-- [ ] **DMARC — correction + your requested change (needs a 1-line DNS edit you'll do).** The
-      overnight note ("add `v=DMARC1; p=none`") was **wrong** — a *strong* DMARC record already
-      exists on hyugorix.com:
-      `v=DMARC1; p=reject; rua=mailto:kaushikrb909@gmail.com; ruf=mailto:kaushikrb909@gmail.com; sp=reject; adkim=s; aspf=s; pct=100`
-      That's good (it's why app mail lands in Inbox, not spam). You asked to point the reports at
-      support@hyugorix.com. DMARC reports aren't "where spam goes" — they're daily authentication
-      summaries — but changing the address is exactly one field. Since I can't write DNS (browser
-      tool blocks dash.cloudflare.com), **you** edit the TXT record at `_dmarc.hyugorix.com` in
-      Cloudflare DNS to:
+      links use it. The old `*.workers.dev` URL is now disabled (wrangler's default once a custom
+      domain exists) — if you want it back as a fallback, say so and I'll add `"workers_dev": true`
+      to `wrangler.jsonc`. README/e2e/docs all updated to the new URL.
+- [ ] **DMARC — exact change for you to make (removes your Gmail, points reports at support@).**
+      A *strong* DMARC record already exists on `hyugorix.com` (`p=reject`, strict alignment — it's
+      why app mail lands in Inbox, not spam; the overnight "add p=none" note was wrong). Its report
+      address currently points at your personal Gmail. To move reports to support@hyugorix.com and
+      drop the Gmail, edit the single TXT record at `_dmarc.hyugorix.com` in Cloudflare DNS to
+      exactly this value (I can't write DNS — the browser tool blocks the Cloudflare dashboard):
       `v=DMARC1; p=reject; rua=mailto:support@hyugorix.com; ruf=mailto:support@hyugorix.com; sp=reject; adkim=s; aspf=s; pct=100`
-      (or keep both: `rua=mailto:support@hyugorix.com,mailto:kaushikrb909@gmail.com`). Do NOT change
-      `p=reject`/`sp=reject` — they're working. This is optional; deliverability is already fine.
+      Steps: Cloudflare → hyugorix.com → DNS → Records → find the TXT record named `_dmarc` → Edit →
+      replace the content with the line above → Save. Leave `p=reject`/`sp=reject` as-is (they work).
+      Delivery-neutral — it only changes where daily reports land; your mail keeps flowing.
 - [ ] `[seeded]` **Deliverability sanity check (optional):** magic link to a *fresh* address, or
       the Outlook `kaushik@hyugorix.com` check (1 email). Gmail already confirmed landing in Inbox.
 - [ ] `[seeded]` **Optional:** Linear project "super profile" — Linear MCP needs re-auth
@@ -147,9 +145,9 @@ reconnects; inbound email dedup for webhook retries.
 
 - [ ] **Check Resend's daily send quota before the evaluation window.** While verifying real
       email delivery tonight (magic link + a real inbound→reply→threaded-reply round trip, all
-      confirmed working via Gmail), I noticed two Resend notification emails in your inbox at
-      4:27 AM and 4:33 AM: "You have reached 80%/100% of your daily quota for the team
-      kaushikrb909." Every send I made *after* that (4:44 AM magic link, 4:49 AM reply) still
+      confirmed working via the inbox), I noticed two Resend notification emails in your inbox at
+      4:27 AM and 4:33 AM: "You have reached 80%/100% of your daily quota for the account."
+      Every send I made *after* that (4:44 AM magic link, 4:49 AM reply) still
       went through fine, so whatever the quota is didn't actually block anything tonight — but
       it's worth a 2-minute check of the Resend dashboard's usage/plan page before evaluators
       start testing, in case a free-tier daily cap could bite at the wrong moment during their

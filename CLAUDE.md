@@ -30,7 +30,7 @@ stretch features > visual polish**.
 
 | Thing | Value |
 |---|---|
-| Cloudflare account (pinned in wrangler.jsonc) | `5c06421b792bba8d18c35d4d575c0b71` (kaushikrb909@gmail.com) |
+| Cloudflare account (pinned in wrangler.jsonc) | `5c06421b792bba8d18c35d4d575c0b71` (account owner; OAuth already connected) |
 | Wrangler | `npx wrangler` (v4.110+, OAuth already logged in; scopes: workers/d1/r2/ai/pages/email_routing/email_sending write, zone READ-ONLY) |
 | Zones on the account | `hyugorix.com` (OURS to use), `kaushikrb.com` (**do not touch**) |
 | Outbound email | Resend; API key in `.env` at repo root (`RESEND_API_KEY`); verified sending domain `notifications.hyugorix.com` |

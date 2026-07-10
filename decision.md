@@ -138,7 +138,7 @@ chat); everything after gets appended during the overnight run.
   Resend Inbound) for `inbox.hyugorix.com` before falling back to the simulator.
 - **Investigated (read-only, no DNS changes made):**
   - **Cloudflare Email Routing** on the `hyugorix.com` zone: already has 5 pre-existing routing
-    rules (support@/info@/help@/company@/kaushik@ → kaushikrb909@gmail.com) but the whole feature
+    rules (support@/info@/help@/company@/kaushik@ → the owner's personal mailbox) but the whole feature
     shows **Status: Disabled, DNS records: Not configured** — i.e. it was set up at some point but
     never activated, and today's MX truly is Microsoft 365 only. Critically, Cloudflare Email
     Routing is a **zone-level** feature: enabling it adds/changes MX records at the zone's apex
@@ -151,7 +151,7 @@ chat); everything after gets appended during the overnight run.
 - **Chosen:** stick with the simulator endpoint (`POST /api/v1/email/inbound` with
   `X-Inbound-Secret`) as the demo path for the assignment. It is fully implemented and verified
   end-to-end tonight: simulated inbound → new EMAIL conversation; agent reply → **real** Resend
-  send to kaushikrb909@gmail.com (confirmed via Gmail "Show original": correct From, Reply-To
+  send to the owner's mailbox (confirmed via the inbox's "Show original": correct From, Reply-To
   plus-address, In-Reply-To/References headers, SPF/DKIM/DMARC all PASS); simulated customer
   replies via both plus-addressing and In-Reply-To/References header matching both correctly
   threaded into the same conversation with zero duplicates.

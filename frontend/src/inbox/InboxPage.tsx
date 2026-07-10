@@ -34,6 +34,7 @@ export default function InboxPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [presenceOnline, setPresenceOnline] = useState(0);
+  const [onlineContactIds, setOnlineContactIds] = useState<string[]>([]);
   const listenersRef = useRef<Set<(event: WsEvent) => void>>(new Set());
 
   const loadConversations = useCallback(async () => {
@@ -77,6 +78,7 @@ export default function InboxPage() {
         setConversations((prev) => mergeSnapshot(prev, event.conversation));
       } else if (event.type === "PRESENCE") {
         setPresenceOnline(event.agentsOnline);
+        setOnlineContactIds(event.onlineContactIds);
       }
       for (const fn of listenersRef.current) fn(event);
     },
@@ -137,6 +139,7 @@ export default function InboxPage() {
           members={members}
           currentUserId={user?.id}
           presenceOnline={presenceOnline}
+          onlineContactIds={onlineContactIds}
           onConversationChanged={handleConversationChanged}
         />
       ) : (

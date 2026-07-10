@@ -58,7 +58,7 @@ export type WsEvent =
   | { type: "MESSAGE_CREATED"; conversation: ConversationSnapshot; message: Message }
   | { type: "CONVERSATION_UPDATED"; conversation: ConversationSnapshot }
   | { type: "TYPING"; conversationId: string; from: "AGENT" | "CONTACT"; state: "START" | "STOP" }
-  | { type: "PRESENCE"; agentsOnline: number }
+  | { type: "PRESENCE"; agentsOnline: number; onlineContactIds: string[] }
   | { type: "READ_RECEIPT"; conversationId: string; by: "AGENT" | "CONTACT"; at: number }
   | { type: "PONG" };
 

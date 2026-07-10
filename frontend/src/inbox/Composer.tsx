@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 export function Composer({
   onSend,
@@ -7,27 +7,44 @@ export function Composer({
   placeholder = "Reply…",
 }: {
   onSend: (text: string) => Promise<void> | void;
-  onTyping?: (state: "START" | "STOP") => void;
+  onTyping?: () => void;
   disabled?: boolean;
   placeholder?: string;
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
-  const typingRef = useRef(false);
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtyRef = useRef(false);
+  const loopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Typing signal: ping the other side right away, then a self-rescheduling setTimeout loop
+  // (never setInterval) re-pings every 3s ONLY if new characters were typed since the last ping.
+  // The first tick that finds nothing new stops the loop. The receiver shows the dots for 4s
+  // per ping, so continuous typing keeps re-extending that window.
+  function pingLoop() {
+    loopRef.current = null;
+    if (!dirtyRef.current) return; // nothing typed in the last 3s → stop
+    dirtyRef.current = false;
+    onTyping?.();
+    loopRef.current = setTimeout(pingLoop, 3000);
+  }
 
   function notifyTyping() {
     if (!onTyping) return;
-    if (!typingRef.current) {
-      typingRef.current = true;
-      onTyping("START");
+    dirtyRef.current = true;
+    if (!loopRef.current) {
+      dirtyRef.current = false;
+      onTyping();
+      loopRef.current = setTimeout(pingLoop, 3000);
     }
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    typingTimerRef.current = setTimeout(() => {
-      typingRef.current = false;
-      onTyping("STOP");
-    }, 2000);
   }
+
+  function stopTypingLoop() {
+    if (loopRef.current) clearTimeout(loopRef.current);
+    loopRef.current = null;
+    dirtyRef.current = false;
+  }
+
+  useEffect(() => () => stopTypingLoop(), []);
 
   async function handleSend() {
     const trimmed = text.trim();
@@ -36,10 +53,7 @@ export function Composer({
     try {
       await onSend(trimmed);
       setText("");
-      if (typingRef.current) {
-        typingRef.current = false;
-        onTyping?.("STOP");
-      }
+      stopTypingLoop();
     } finally {
       setSending(false);
     }

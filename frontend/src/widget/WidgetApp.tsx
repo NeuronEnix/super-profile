@@ -27,6 +27,7 @@ export default function WidgetApp() {
   const [conversations, setConversations] = useState<ConversationSnapshot[]>([]);
   const [view, setView] = useState<View>({ mode: "list" });
   const [reconnectNonce, setReconnectNonce] = useState(0);
+  const [agentsOnline, setAgentsOnline] = useState(0);
   const listenersRef = useRef<Set<(event: WsEvent) => void>>(new Set());
   const firstOpenRef = useRef(true);
 
@@ -70,6 +71,8 @@ export default function WidgetApp() {
   const handleSocketMessage = useCallback((event: WsEvent) => {
     if (event.type === "MESSAGE_CREATED" || event.type === "CONVERSATION_UPDATED") {
       setConversations((prev) => mergeSnapshot(prev, event.conversation));
+    } else if (event.type === "PRESENCE") {
+      setAgentsOnline(event.agentsOnline);
     }
     for (const fn of listenersRef.current) fn(event);
   }, []);
@@ -153,6 +156,7 @@ export default function WidgetApp() {
         send={send}
         subscribe={subscribe}
         reconnectNonce={reconnectNonce}
+        agentsOnline={agentsOnline}
         onBack={() => setView({ mode: "list" })}
         onConversationChanged={handleConversationChanged}
       />

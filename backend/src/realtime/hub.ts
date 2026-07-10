@@ -164,7 +164,7 @@ export class WorkspaceHub {
     this.state.acceptWebSocket(server);
     const attachment: SocketAttachment = { kind, userId };
     server.serializeAttachment(attachment);
-    if (kind === "AGENT") this.broadcastPresence();
+    this.broadcastPresence();
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -199,8 +199,7 @@ export class WorkspaceHub {
   }
 
   async webSocketClose(ws: WebSocket, _code: number, _reason: string, _wasClean: boolean): Promise<void> {
-    const attachment = this.readAttachment(ws);
-    if (attachment?.kind === "AGENT") this.broadcastPresence();
+    if (this.readAttachment(ws)) this.broadcastPresence();
   }
 
   private readAttachment(ws: WebSocket): SocketAttachment | null {
@@ -267,10 +266,13 @@ export class WorkspaceHub {
 
   private broadcastPresence() {
     let agentsOnline = 0;
+    const onlineContactIds = new Set<string>();
     for (const ws of this.state.getWebSockets()) {
-      if (this.readAttachment(ws)?.kind === "AGENT") agentsOnline++;
+      const att = this.readAttachment(ws);
+      if (att?.kind === "AGENT") agentsOnline++;
+      else if (att?.kind === "CONTACT") onlineContactIds.add(att.userId);
     }
-    this.broadcastToEveryone({ type: WS_EVENT.PRESENCE, agentsOnline });
+    this.broadcastToEveryone({ type: WS_EVENT.PRESENCE, agentsOnline, onlineContactIds: [...onlineContactIds] });
   }
 
   private async loadConversation(id: string): Promise<ConversationRow> {

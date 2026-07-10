@@ -4,6 +4,7 @@ import { useToast } from "../components/Toast";
 import { ContactPanel } from "./ContactPanel";
 import { SummaryPanel } from "./SummaryPanel";
 import { Composer } from "./Composer";
+import { Ticks, TypingDots, type TickState } from "../components/MessageStatus";
 import type { Conversation, ConversationSnapshot, Member, Message, WsEvent } from "../lib/types";
 
 function formatTime(ts: number): string {
@@ -32,6 +33,7 @@ export function ConversationView({
   members,
   currentUserId,
   presenceOnline,
+  onlineContactIds,
   onConversationChanged,
 }: {
   conversationId: string;
@@ -42,11 +44,15 @@ export function ConversationView({
   members: Member[];
   currentUserId: string | undefined;
   presenceOnline: number;
+  onlineContactIds: string[];
   onConversationChanged: (c: Conversation) => void;
 }) {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [contactTyping, setContactTyping] = useState(false);
+  // Monotonic "delivered" watermark: once the contact is seen online, every message up to now is
+  // delivered and stays delivered even if they later disconnect (so the tick never flickers back).
+  const [deliveredAt, setDeliveredAt] = useState(0);
   const { showError } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -117,16 +123,17 @@ export function ConversationView({
         setConversation((prev) => (prev ? { ...event.conversation, contact: prev.contact, unread: prev.unread } : prev));
         setMessages((prev) => (prev.some((m) => m.id === event.message.id) ? prev : [...prev, event.message]));
         if (event.message.senderType === "CONTACT") {
+          setContactTyping(false); // they sent — no longer typing
+          if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
           api(`/api/v1/ws/${wsId}/conversations/${conversationId}/read`, { method: "POST" }).catch(() => {});
         }
       } else if (event.type === "CONVERSATION_UPDATED" && event.conversation.id === conversationId) {
         setConversation((prev) => (prev ? { ...event.conversation, contact: prev.contact, unread: prev.unread } : prev));
       } else if (event.type === "TYPING" && event.conversationId === conversationId && event.from === "CONTACT") {
-        setContactTyping(event.state === "START");
+        // Each ping shows the dots for 4s; a new ping resets the window from now.
+        setContactTyping(true);
         if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-        if (event.state === "START") {
-          typingTimerRef.current = setTimeout(() => setContactTyping(false), 5000);
-        }
+        typingTimerRef.current = setTimeout(() => setContactTyping(false), 4000);
       } else if (event.type === "READ_RECEIPT" && event.conversationId === conversationId && event.by === "CONTACT") {
         setConversation((prev) => (prev ? { ...prev, contactLastReadAt: event.at } : prev));
       }
@@ -136,6 +143,14 @@ export function ConversationView({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, contactTyping]);
+
+  // Latch "delivered" whenever this conversation's contact is currently connected.
+  useEffect(() => {
+    const contactUserId = messages.find((m) => m.senderType === "CONTACT")?.senderId ?? null;
+    if (contactUserId && onlineContactIds.includes(contactUserId)) {
+      setDeliveredAt((prev) => Math.max(prev, Date.now()));
+    }
+  }, [onlineContactIds, messages]);
 
   const patchConversation = useCallback(
     async (patch: Record<string, unknown>) => {
@@ -167,23 +182,26 @@ export function ConversationView({
     [wsId, conversationId, onConversationChanged],
   );
 
-  const handleTyping = useCallback(
-    (state: "START" | "STOP") => {
-      send({ type: "TYPING", conversationId, state });
-    },
-    [send, conversationId],
-  );
+  const handleTyping = useCallback(() => {
+    send({ type: "TYPING", conversationId, state: "START" });
+  }, [send, conversationId]);
 
   if (!conversation) {
     return <div className="flex flex-1 items-center justify-center text-sm text-slate-400">Loading…</div>;
   }
 
+  const isChat = conversation.channel === "CHAT";
   const lastAgentMessage = [...messages].reverse().find((m) => m.senderType === "AGENT");
   const seen = !!(
     lastAgentMessage &&
     conversation.contactLastReadAt &&
     conversation.contactLastReadAt >= lastAgentMessage.createdAt
   );
+  const tickState = (m: Message): TickState => {
+    if (conversation.contactLastReadAt != null && conversation.contactLastReadAt >= m.createdAt) return "read";
+    if (deliveredAt >= m.createdAt) return "delivered";
+    return "sent";
+  };
 
   return (
     <div className="flex flex-1 min-w-0">
@@ -264,26 +282,29 @@ export function ConversationView({
                   >
                     <div className="whitespace-pre-wrap break-words">{m.bodyText}</div>
                     <div
-                      className={`mt-1 text-[10px] ${m.senderType === "AGENT" ? "text-indigo-200" : "text-slate-400"}`}
+                      className={`mt-1 flex items-center gap-1 text-[10px] ${
+                        m.senderType === "AGENT" ? "justify-end text-indigo-200" : "text-slate-400"
+                      }`}
                     >
-                      {formatTime(m.createdAt)}
+                      <span>{formatTime(m.createdAt)}</span>
+                      {isChat && m.senderType === "AGENT" && <Ticks state={tickState(m)} onColor />}
                     </div>
                   </div>
                 </div>
               )}
             </div>
           ))}
-          {contactTyping && (
+          {isChat && contactTyping && (
             <div className="flex justify-start">
-              <div className="rounded-2xl bg-slate-100 px-3.5 py-2 text-xs italic text-slate-400">typing…</div>
+              <div className="rounded-2xl bg-slate-100 px-3.5 py-2">
+                <TypingDots />
+              </div>
             </div>
           )}
-          {seen && (
-            <div className="text-right text-[10px] text-slate-400">Seen</div>
-          )}
+          {!isChat && seen && <div className="text-right text-[10px] text-slate-400">Seen</div>}
         </div>
 
-        <Composer onSend={handleSend} onTyping={handleTyping} />
+        <Composer onSend={handleSend} onTyping={isChat ? handleTyping : undefined} />
       </div>
 
       <div className="w-64 shrink-0 overflow-y-auto border-l border-slate-200 bg-white">

@@ -23,7 +23,12 @@ export default function SettingsPage() {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const snippet = ws ? `<script src="/widget.js" data-widget-key="${ws.widgetKey}"></script>` : "";
+  // Absolute src — the snippet gets pasted on CUSTOMER sites, where a relative /widget.js
+  // would resolve against their domain and 404. The loader derives its API origin from
+  // script.src, so pointing here is all a foreign page needs.
+  const snippet = ws
+    ? `<script src="${window.location.origin}/widget.js" data-widget-key="${ws.widgetKey}"></script>`
+    : "";
 
   async function handleCopySnippet() {
     await navigator.clipboard.writeText(snippet);

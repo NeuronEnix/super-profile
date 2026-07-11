@@ -57,11 +57,16 @@
       <p class="note">
         The widget works on any site — just paste one script tag before
         <code>&lt;/body&gt;</code>:<br />
-        <code>&lt;script src="/widget.js" data-widget-key="wk_..."&gt;&lt;/script&gt;</code>
+        <code id="snippet-example">&lt;script src="/widget.js" data-widget-key="wk_..."&gt;&lt;/script&gt;</code>
       </p>
     </div>
     <script>
       (function () {
+        // Show the copyable form with an absolute src — on a customer's site a relative
+        // /widget.js would resolve against their domain. (This page's own injection below can
+        // stay relative: demo.html is served from the app origin itself.)
+        document.getElementById("snippet-example").textContent =
+          '<script src="' + window.location.origin + '/widget.js" data-widget-key="wk_..."><\/script>';
         var key = new URLSearchParams(window.location.search).get("key");
         if (!key) {
           document.getElementById("missing-key-note").style.display = "block";

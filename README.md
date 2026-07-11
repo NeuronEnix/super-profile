@@ -434,7 +434,7 @@ priority order, when time ran out — nothing here is an oversight.
 | 6 | AI conversation summaries | ✅ Built — rolling, cached, graceful fallback |
 | 7 | Custom domains | 🟡 Documented approach + schema only; connect UI + real DNS verification is the [morning playbook](decision.md) (Task 12), deliberately deferred by explicit user decision before this session's sleep |
 | — | Canned responses (stretch) | ✅ Built in the v2 overnight batch — see [What shipped overnight (v2)](#what-shipped-overnight-v2); originally skipped ([decision #18](decision.md)), revisited the following night |
-| — | AI draft replies (stretch) | ✅ Built — "Delegate to AI" autonomous KB-grounded replies with human escalation |
+| — | AI draft replies (stretch) | ✅ Built — "Delegate to AI" autonomous KB-grounded replies with human escalation; closes the ticket itself once the customer confirms they need nothing else |
 | — | SLA tracking (stretch) | ✅ Built in the v2 overnight batch — first-response/resolution targets, on-read breach chips |
 | — | Analytics dashboard (stretch) | ✅ Built in the v2 overnight batch — response times, volume, busiest hours, agent + AI deflection stats |
 | — | R2 attachment upload UI | ❌ Skipped — table + R2 binding exist, no UI; not required by the assignment |

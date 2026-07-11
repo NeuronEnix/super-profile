@@ -1,5 +1,6 @@
 import { AI_CONF, CHANNEL, CONVERSATION, MESSAGE } from "../common/const";
 import { getConfig } from "../config/env.config";
+import { now } from "../common/id";
 import { searchArticles, stripMarkdown } from "../kb/search";
 import { sendMessage } from "../realtime/hub";
 import { sendReply } from "../email/outbound";
@@ -15,6 +16,8 @@ import type { Env } from "../types";
  */
 
 const ESCALATE_TOKEN = "ESCALATE";
+const RESOLVE_TOKEN = "RESOLVE";
+const DEFAULT_FAREWELL = "You're all set — I'll close this ticket now. Have a great day!";
 
 export const FIRST_TURN_HINT =
   'If you\'d rather talk to a human at any point, just type "escalate to human".';
@@ -34,6 +37,19 @@ export function isEscalateResponse(response: string): boolean {
   return /^escalate\b/i.test(response.trim());
 }
 
+/**
+ * The model signals a customer-confirmed completion with `RESOLVE: <goodbye>`. The token must
+ * be bare or followed by punctuation — a normal reply that merely starts with the word
+ * ("Resolve this by going to…") must never close a ticket.
+ */
+export function parseResolveResponse(response: string): { resolve: boolean; farewell: string } {
+  const t = response.trim();
+  if (/^resolve[.!]*$/i.test(t)) return { resolve: true, farewell: DEFAULT_FAREWELL };
+  const m = /^resolve\b\s*[:.—–-]+\s*([\s\S]*)$/i.exec(t);
+  if (!m) return { resolve: false, farewell: "" };
+  return { resolve: true, farewell: m[1].trim() || DEFAULT_FAREWELL };
+}
+
 function systemPrompt(workspaceName: string): string {
   return (
     `You are handling a live customer support conversation for ${workspaceName} while the human agent is away. Rules:\n` +
@@ -42,6 +58,12 @@ function systemPrompt(workspaceName: string): string {
     "- Only state facts found in the knowledge-base articles provided. The documentation map shows everything that exists — " +
     "when the customer's answer lives in a mapped article that isn't excerpted, share that article's URL. When an article answers the question, " +
     "give a one-or-two-line overview and include the article's URL so the customer can read the full steps — never paste the whole article.\n" +
+    "- When the customer's request looks fully handled, end your reply by asking if there's anything else " +
+    "you can help with and offering to close the ticket.\n" +
+    `- If the customer's LATEST message clearly confirms they're satisfied and need nothing else (after you offered), ` +
+    `output exactly ${RESOLVE_TOKEN}: followed by a one-line goodbye and nothing more. ` +
+    `A satisfied goodbye needs no articles — never ${ESCALATE_TOKEN} for it. ` +
+    `Never ${RESOLVE_TOKEN} unless the customer has confirmed; when in doubt, just reply normally.\n` +
     `- If the customer asks for a human, or the articles don't contain what you need to actually resolve the request, output exactly ${ESCALATE_TOKEN} and nothing else.`
   );
 }
@@ -65,7 +87,8 @@ export function buildHandlerPrompt(messages: MessageRow[], articles: KbArticle[]
   return (
     `${map}Knowledge base articles you can link to:\n${kb}\n\n` +
     `Conversation so far (newest last):\n${transcript}\n\n` +
-    `Write your next chat reply to the customer, or output exactly ${ESCALATE_TOKEN}.`
+    `Write your next chat reply to the customer, or output exactly ${ESCALATE_TOKEN}, ` +
+    `or output ${RESOLVE_TOKEN}: <goodbye> if the customer just confirmed they need nothing else.`
   );
 }
 
@@ -136,6 +159,38 @@ async function escalate(
     senderType: MESSAGE.SENDER_TYPE.SYSTEM,
     senderId: null,
     bodyText: `AI escalated to ${name}`,
+  });
+}
+
+/**
+ * Customer confirmed they're done → farewell + close. Order is load-bearing: the farewell must
+ * be posted while the conversation is still OPEN, because any non-SYSTEM message on a RESOLVED
+ * conversation immediately reopens it (shouldReopen). Resolving mirrors the human resolve path:
+ * stamps resolved_at, releases the assignee, clears the AI flags — and the SYSTEM note's
+ * broadcast carries the RESOLVED snapshot to both sides.
+ */
+async function resolveByAi(
+  env: Env,
+  workspace: { id: string; name: string; slug: string },
+  conv: { id: string; channel: string; contactId: string },
+  farewell: string,
+): Promise<void> {
+  await postAiMessage(env, workspace, conv, farewell);
+  // Conditional write: if a human took over while we were generating, leave the ticket to them.
+  const res = await env.DB.prepare(
+    `UPDATE conversations
+     SET status=?1, resolved_at=?2, ai_handling=0, ai_escalated=0, assignee_id=NULL, updated_at=?2
+     WHERE id=?3 AND ai_handling=1`,
+  )
+    .bind(CONVERSATION.STATUS.RESOLVED, now(), conv.id)
+    .run();
+  if (!res.meta.changes) return;
+  await sendMessage(env, {
+    workspaceId: workspace.id,
+    conversationId: conv.id,
+    senderType: MESSAGE.SENDER_TYPE.SYSTEM,
+    senderId: null,
+    bodyText: "Resolved by AI",
   });
 }
 
@@ -219,6 +274,17 @@ export async function runAiTurn(
     // Re-check before posting: the human may have taken over while we were generating.
     const fresh = await loadConversation(env, workspaceId, conversationId);
     if (!fresh?.aiHandling) return;
+
+    const resolved = parseResolveResponse(reply);
+    if (resolved.resolve) {
+      // Never auto-close on the delegation turn itself — the customer hasn't confirmed
+      // anything to US yet; strip the token and treat the goodbye as a normal reply instead.
+      if (!opts.firstTurn) {
+        await resolveByAi(env, workspace, conv, resolved.farewell);
+        return;
+      }
+      reply = resolved.farewell;
+    }
 
     const text = opts.firstTurn ? `${reply}\n\n${FIRST_TURN_HINT}` : reply;
     await postAiMessage(env, workspace, conv, text);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildHandlerPrompt, isEscalateResponse, wantsHuman } from "../src/ai/handler";
+import { buildHandlerPrompt, isEscalateResponse, parseResolveResponse, wantsHuman } from "../src/ai/handler";
 
 describe("wantsHuman", () => {
   it("matches explicit requests for a human", () => {
@@ -31,6 +31,35 @@ describe("isEscalateResponse", () => {
   });
 });
 
+describe("parseResolveResponse", () => {
+  it("parses the token with a goodbye", () => {
+    expect(parseResolveResponse("RESOLVE: You're all set, have a great day!")).toEqual({
+      resolve: true,
+      farewell: "You're all set, have a great day!",
+    });
+    expect(parseResolveResponse("resolve — glad that worked, closing this now.")).toEqual({
+      resolve: true,
+      farewell: "glad that worked, closing this now.",
+    });
+  });
+
+  it("bare token falls back to a default farewell", () => {
+    const r = parseResolveResponse("  RESOLVE  ");
+    expect(r.resolve).toBe(true);
+    expect(r.farewell.length).toBeGreaterThan(10);
+  });
+
+  it("empty goodbye after the separator also falls back", () => {
+    expect(parseResolveResponse("RESOLVE:").farewell.length).toBeGreaterThan(10);
+  });
+
+  it("never matches normal replies that merely start with the word", () => {
+    expect(parseResolveResponse("Resolve this by going to Settings > Billing.").resolve).toBe(false);
+    expect(parseResolveResponse("Resolved your issue — check the billing page.").resolve).toBe(false);
+    expect(parseResolveResponse("You can resolve it from the dashboard.").resolve).toBe(false);
+  });
+});
+
 describe("buildHandlerPrompt", () => {
   it("includes article URLs and relabels senders", () => {
     const prompt = buildHandlerPrompt(
@@ -49,5 +78,11 @@ describe("buildHandlerPrompt", () => {
 
   it("marks the KB as empty rather than omitting the section", () => {
     expect(buildHandlerPrompt([], [])).toContain("(none available)");
+  });
+
+  it("offers both control tokens in the closing instruction", () => {
+    const prompt = buildHandlerPrompt([], []);
+    expect(prompt).toContain("ESCALATE");
+    expect(prompt).toContain("RESOLVE:");
   });
 });

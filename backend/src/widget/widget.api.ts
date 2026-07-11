@@ -12,6 +12,8 @@ import { sendMessage, markRead } from "../realtime/hub";
 import { triggerAiTurn } from "../ai/handler";
 import { resolveContact } from "../contacts/contacts.service";
 import { searchArticles } from "../kb/search";
+import { publicKbBase } from "../domains/host";
+import { getConfig } from "../config/env.config";
 import type { HonoEnv } from "../common/hono-env";
 
 const widgetMsgKey = (c: Context<HonoEnv>) => `widget:${c.get("widgetUserId")}`;
@@ -87,6 +89,9 @@ widgetApi.post("/boot", validate(BootBody, "json"), async (c) => {
   const resolvedUserId = await resolveWidgetUserId(c.env.DB, userId, ts);
   const contact = await resolveContact(c.env.DB, workspace.id, resolvedUserId, email, name, ts);
   const token = await signWidgetToken(c.env, resolvedUserId, workspace.id);
+  // Where article links should point: the customer's docs domain when one is ACTIVE,
+  // else our hosted /kb page — same resolution the AI's citations use.
+  const kbBase = await publicKbBase(c.env.DB, workspace.id, workspace.slug, getConfig(c.env).APP_URL);
 
   const { results } = await c.env.DB.prepare(
     `SELECT ${CONVERSATION_COLS} FROM conversations WHERE workspace_id=?1 AND contact_id=?2 ORDER BY last_message_at DESC LIMIT 50`,
@@ -98,7 +103,7 @@ widgetApi.post("/boot", validate(BootBody, "json"), async (c) => {
     userId: resolvedUserId,
     token,
     contact,
-    workspace: { id: workspace.id, name: workspace.name, slug: workspace.slug, widgetColor: workspace.widgetColor },
+    workspace: { id: workspace.id, name: workspace.name, slug: workspace.slug, widgetColor: workspace.widgetColor, kbBase },
     conversations: results,
   });
 });

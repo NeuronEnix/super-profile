@@ -5,13 +5,13 @@ import type { Contact, KbSearchHit } from "../lib/types";
 export function NewTicket({
   contact,
   widgetColor,
-  wsSlug,
+  kbBase,
   onBack,
   onCreate,
 }: {
   contact: Contact | null;
   widgetColor: string;
-  wsSlug: string;
+  kbBase: string;
   onBack: () => void;
   onCreate: (body: string, profile?: { name?: string; email?: string }) => Promise<void>;
 }) {
@@ -104,7 +104,7 @@ export function NewTicket({
             {suggestions.map((s) => (
               <a
                 key={s.id}
-                href={`/kb/${wsSlug}/a/${s.slug}`}
+                href={`${kbBase}/a/${s.slug}`}
                 target="_blank"
                 rel="noreferrer"
                 onClick={(e) => e.stopPropagation()}

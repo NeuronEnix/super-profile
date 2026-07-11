@@ -15,14 +15,14 @@ function relativeTime(ts: number): string {
 export function TicketList({
   workspaceName,
   widgetColor,
-  wsSlug,
+  kbBase,
   conversations,
   onSelect,
   onNewConversation,
 }: {
   workspaceName: string;
   widgetColor: string;
-  wsSlug: string;
+  kbBase: string;
   conversations: ConversationSnapshot[];
   onSelect: (id: string) => void;
   onNewConversation: () => void;
@@ -65,7 +65,7 @@ export function TicketList({
             {results.map((r) => (
               <li key={r.id}>
                 <a
-                  href={`/kb/${wsSlug}/a/${r.slug}`}
+                  href={`${kbBase}/a/${r.slug}`}
                   target="_blank"
                   rel="noreferrer"
                   className="block rounded-lg border border-slate-100 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"

@@ -23,7 +23,7 @@ export default function WidgetApp() {
   const [error, setError] = useState<string | null>(null);
   const [booted, setBooted] = useState(false);
   const [contact, setContact] = useState<Contact | null>(null);
-  const [workspace, setWorkspace] = useState<{ id: string; name: string; slug: string; widgetColor: string } | null>(null);
+  const [workspace, setWorkspace] = useState<{ id: string; name: string; slug: string; widgetColor: string; kbBase: string } | null>(null);
   const [conversations, setConversations] = useState<ConversationSnapshot[]>([]);
   const [view, setView] = useState<View>({ mode: "list" });
   const [reconnectNonce, setReconnectNonce] = useState(0);
@@ -39,7 +39,7 @@ export default function WidgetApp() {
         userId: string;
         token: string;
         contact: Contact;
-        workspace: { id: string; name: string; slug: string; widgetColor: string };
+        workspace: { id: string; name: string; slug: string; widgetColor: string; kbBase: string };
         conversations: ConversationSnapshot[];
       }>("/api/v1/widget/boot", { method: "POST", body: { widgetKey, userId: storedUid } });
       localStorage.setItem(UID_KEY, data.userId);
@@ -173,7 +173,7 @@ export default function WidgetApp() {
       <NewTicket
         contact={contact}
         widgetColor={workspace.widgetColor}
-        wsSlug={workspace.slug}
+        kbBase={workspace.kbBase}
         onBack={() => setView({ mode: "list" })}
         onCreate={handleCreateConversation}
       />
@@ -199,7 +199,7 @@ export default function WidgetApp() {
     <TicketList
       workspaceName={workspace.name}
       widgetColor={workspace.widgetColor}
-      wsSlug={workspace.slug}
+      kbBase={workspace.kbBase}
       conversations={conversations}
       onSelect={(id) => setView({ mode: "ticket", id })}
       onNewConversation={() => setView({ mode: "new" })}

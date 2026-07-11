@@ -42,7 +42,7 @@ const EventBody = z.object({
 const widgetEventLimit = rateLimit(widgetMsgKey, 30, 60);
 
 const CONVERSATION_COLS =
-  "id, workspace_id as workspaceId, contact_id as contactId, channel, status, subject, last_message_at as lastMessageAt, last_message_preview as lastMessagePreview, message_count as messageCount, contact_last_read_at as contactLastReadAt, created_at as createdAt, updated_at as updatedAt";
+  "id, workspace_id as workspaceId, contact_id as contactId, channel, status, subject, last_message_at as lastMessageAt, last_message_preview as lastMessagePreview, message_count as messageCount, contact_last_read_at as contactLastReadAt, agent_last_read_at as agentLastReadAt, created_at as createdAt, updated_at as updatedAt";
 
 const MESSAGE_COLS =
   "id, conversation_id as conversationId, workspace_id as workspaceId, sender_type as senderType, sender_id as senderId, body_text as bodyText, body_html as bodyHtml, created_at as createdAt";

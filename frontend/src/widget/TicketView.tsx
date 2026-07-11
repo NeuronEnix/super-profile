@@ -85,6 +85,9 @@ export function TicketView({
       } else if (event.type === "CONVERSATION_UPDATED" && event.conversation.id === conversationId) {
         setConversation(event.conversation);
         onConversationChanged(event.conversation);
+      } else if (event.type === "READ_RECEIPT" && event.conversationId === conversationId && event.by === "AGENT") {
+        // Agent-side read (human opening the inbox, or the AI replying) — turn the ticks blue.
+        setConversation((prev) => (prev ? { ...prev, agentLastReadAt: event.at } : prev));
       } else if (event.type === "TYPING" && event.conversationId === conversationId && event.from === "AGENT") {
         // Each ping shows the dots for 3s; a new ping resets the window from now.
         setAgentTyping(true);

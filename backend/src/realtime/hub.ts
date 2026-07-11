@@ -368,6 +368,8 @@ export class WorkspaceHub {
     // so a crash between the two can never leave message_count/last_message_preview stale.
     // The sender's own read watermark advances with their message (sending implies having read
     // everything up to it) — otherwise a conversation shows as unread to the person who just replied.
+    // An AI reply advances the agent-side watermark too: replying proves the customer's messages
+    // were read, so their ticks turn blue even when no human ever opens the inbox.
     const statements = [
       db
         .prepare(
@@ -393,7 +395,7 @@ export class WorkspaceHub {
           `UPDATE conversations
            SET last_message_at=?1, last_message_preview=?2, message_count=message_count+1,
                status=?3, snoozed_until=CASE WHEN ?3='OPEN' THEN NULL ELSE snoozed_until END,
-               agent_last_read_at=CASE WHEN ?5='AGENT' THEN ?1 ELSE agent_last_read_at END,
+               agent_last_read_at=CASE WHEN ?5 IN ('AGENT','AI') THEN ?1 ELSE agent_last_read_at END,
                contact_last_read_at=CASE WHEN ?5='CONTACT' THEN ?1 ELSE contact_last_read_at END,
                assignee_id=CASE WHEN ?5='AGENT' AND assignee_id IS NULL THEN ?6 ELSE assignee_id END,
                ai_escalated=CASE WHEN ?5='AGENT' THEN 0 ELSE ai_escalated END,

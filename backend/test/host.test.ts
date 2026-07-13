@@ -20,7 +20,7 @@ describe("isAppHost", () => {
     expect(isAppHost("sp.hyugorix.com", APP_URL)).toBe(true);
     expect(isAppHost("localhost", APP_URL)).toBe(true);
     expect(isAppHost("127.0.0.1", APP_URL)).toBe(true);
-    expect(isAppHost("super-profile.foo.workers.dev", APP_URL)).toBe(true);
+    expect(isAppHost("hyugorix.foo.workers.dev", APP_URL)).toBe(true);
     expect(isAppHost("", APP_URL)).toBe(true); // no Host header is never a customer domain
   });
 

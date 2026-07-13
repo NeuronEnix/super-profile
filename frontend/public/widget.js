@@ -1,9 +1,9 @@
-// SuperProfile embeddable widget loader — vanilla JS, no dependencies.
+// Hyugorix embeddable widget loader — vanilla JS, no dependencies.
 (function () {
   var script = document.currentScript;
   var widgetKey = script && script.getAttribute("data-widget-key");
   if (!widgetKey) {
-    console.warn("[SuperProfile] widget.js: missing data-widget-key attribute");
+    console.warn("[Hyugorix] widget.js: missing data-widget-key attribute");
     return;
   }
 

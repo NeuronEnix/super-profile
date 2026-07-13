@@ -1,8 +1,8 @@
 # Decision Log
 
-Dilemmas resolved autonomously. Format: Context → Options → Chosen → Why.
-Entries below the line were made during the max-effort design review (user awake, informed in
-chat); everything after gets appended during the overnight run.
+Dilemmas resolved during the build. Format: Context → Options → Chosen → Why.
+Entries below the line were made during the design review; everything after was appended
+during implementation.
 
 ---
 
@@ -21,11 +21,11 @@ chat); everything after gets appended during the overnight run.
 
 ## 2. Custom domains: full skip → "lite" implementation — **SUPERSEDED by user**
 
-> User (before sleeping): skip entirely overnight; do it together in the morning. Overnight
-> deliverable = README approach section only. Plan Task 12 kept as the morning playbook,
+> User: skip entirely; do it together as a follow-up. The interim
+> deliverable = README approach section only. Plan Task 12 kept as the follow-up playbook,
 > marked DO-NOT-EXECUTE. Original reasoning below for the record.
 
-- **Context:** User said skip. But the assignment marks all 7 features non-negotiable
+- **Context:** User said skip. But the spec marks all 7 features non-negotiable
   ("Partial submissions will not be reviewed") while explicitly allowing a stub:
   "Explain your approach even if you stub the DNS verification."
 - **Options:** (a) README paragraph only; (b) lite: connect UI + real DoH TXT verification +
@@ -40,21 +40,21 @@ chat); everything after gets appended during the overnight run.
 - **Options:** (a) Preact/shadow-DOM bundle in host page; (b) <2KB vanilla loader that lazily
   mounts an iframe onto `/widget-app` (a route of our own React SPA).
 - **Chosen:** (b). CSS/JS isolation for free, zero host-page weight until opened, same-origin
-  API+WS inside the iframe (no CORS/cookie pain), one frontend toolchain to maintain overnight,
+  API+WS inside the iframe (no CORS/cookie pain), one frontend toolchain to maintain,
   and it's the architecture Intercom itself uses.
 - **Trade-off:** iframe localStorage is partitioned per host site → same visitor on two
   different customer sites = two identities. That's correct per-tenant behavior anyway.
 
 ## 4. E2E auth for autonomous testing: `DEBUG_AUTH_SECRET` header echo
 
-- **Context:** Magic-link-only login + Playwright can't read mailboxes overnight.
+- **Context:** Magic-link-only login + Playwright can't read mailboxes.
 - **Chosen:** `POST /auth/magic-link` with header `X-Debug-Auth: <secret>` additionally returns
   the raw token in `data`. Secret is a Worker secret, never committed; without the header the
-  endpoint is byte-identical to prod behavior. Evaluators unaffected.
-- **Rejected:** disabling auth in a test mode (diverges from what evaluators test); scraping
-  Gmail via browser (flaky at 3am).
+  endpoint is byte-identical to prod behavior. Users unaffected.
+- **Rejected:** disabling auth in a test mode (diverges from what users test); scraping
+  Gmail via browser (flaky and slow).
 - **Extended in Task 3:** the same `X-Debug-Auth` gate now also echoes the raw invite token from
-  `POST /ws/:wsId/invites` — same rationale (no mailbox access overnight), and it avoids sending
+  `POST /ws/:wsId/invites` — same rationale (no mailbox access), and it avoids sending
   real Resend emails to made-up test addresses during verification.
 
 ## 5. Inbound email: per-workspace addresses + layered transport fallback
@@ -93,7 +93,7 @@ chat); everything after gets appended during the overnight run.
   unit-tested so flipping the constant turns it on. README documents where and why.
 
 ---
-<!-- Overnight entries append below -->
+<!-- New entries append below -->
 
 ## 10. 404 handling: scoped `/api/v1/*` fallback instead of `app.notFound()`
 
@@ -117,7 +117,7 @@ chat); everything after gets appended during the overnight run.
   mail already uses `<slug>@notifications.hyugorix.com` unconditionally.
 - **Chosen:** implement PATCH with only `{name?, widgetColor?}`. Adding an unused column this late
   risks a needless migration for a field nothing consumes.
-- **Why it's safe:** no feature depends on it; if evaluators want it, it's a one-column migration
+- **Why it's safe:** no feature depends on it; if users want it, it's a one-column migration
   away and the pattern (zod-validated partial PATCH) is already in place.
 
 ## 12. Invite-accept requires the accepting user's verified email to match the invite
@@ -132,7 +132,7 @@ chat); everything after gets appended during the overnight run.
   costs one extra SELECT; doesn't block the intended flow (recipient signs in via magic link with
   the invited address, then accepts).
 
-## 13. Email transport: real inbound routing stays out of scope tonight — simulator carries the demo
+## 13. Email transport: real inbound routing stays out of scope — simulator carries the demo
 
 - **Context:** Task 6 asked me to try wiring real inbound transport (Cloudflare Email Routing or
   Resend Inbound) for `inbox.hyugorix.com` before falling back to the simulator.
@@ -149,15 +149,15 @@ chat); everything after gets appended during the overnight run.
     no "Receiving"/"Inbound" tab is present in this account, only Records/Configuration. The
     feature isn't available/enabled here.
 - **Chosen:** stick with the simulator endpoint (`POST /api/v1/email/inbound` with
-  `X-Inbound-Secret`) as the demo path for the assignment. It is fully implemented and verified
-  end-to-end tonight: simulated inbound → new EMAIL conversation; agent reply → **real** Resend
+  `X-Inbound-Secret`) as the demo path for this project. It is fully implemented and verified
+  end-to-end: simulated inbound → new EMAIL conversation; agent reply → **real** Resend
   send to the owner's mailbox (confirmed via the inbox's "Show original": correct From, Reply-To
   plus-address, In-Reply-To/References headers, SPF/DKIM/DMARC all PASS); simulated customer
   replies via both plus-addressing and In-Reply-To/References header matching both correctly
   threaded into the same conversation with zero duplicates.
 - **Why it's safe:** doesn't touch the user's real Microsoft 365 mail; the full pipeline (parsing,
   threading, outbound send, real headers) is proven end-to-end — only the "how does a real email
-  physically reach our Worker" leg is stubbed, exactly the kind of thing the assignment explicitly
+  physically reach our Worker" leg is stubbed, exactly the kind of thing the spec explicitly
   allows stubbing with an honest explanation. Real transport setup (enabling Cloudflare Email
   Routing at the apex, which needs the user's explicit go-ahead since it's their real work email)
   is now a MORNING.md task.
@@ -166,13 +166,13 @@ chat); everything after gets appended during the overnight run.
 
 - **Context:** the plan's task list never assigns a frontend task to invites/team-management UI —
   Shell's sidebar has a "Settings" nav item (Task 7) but no task builds its contents, even though
-  invite/role-management is required assignment feature #1 and the backend (Task 3) was already
+  invite/role-management is required feature #1 and the backend (Task 3) was already
   complete.
 - **Chosen:** built a real (not placeholder) `SettingsPage` in Task 7 — workspace rename,
   members list with role change/remove (ADMIN-gated) and last-admin guard reflected via the
   existing 400 errors, invite form + pending-invites list with revoke.
 - **Why it's safe:** the backend contract was already finalized in Task 3; this just fills a real
-  gap in task coverage rather than adding scope beyond the assignment's non-negotiable feature 1.
+  gap in task coverage rather than adding scope beyond the spec's non-negotiable feature 1.
 
 ## 15. Two real bugs found and fixed via the chat.spec.ts Playwright test (Task 8)
 
@@ -200,9 +200,9 @@ worth recording since they'd bite silently otherwise.
   broadcasts a second `MESSAGE_CREATED` event for the reopen message when one was inserted, so
   dashboard/widget both see "Conversation reopened" appear live, matching what a page reload would
   already show.
-- **Why worth calling out:** both fixes are proven by the same passing `chat.spec.ts` run tonight
+- **Why worth calling out:** both fixes are proven by the same passing `chat.spec.ts` run
   against `wrangler dev`, then re-verified against prod — this is exactly the kind of thing that
-  would have looked "fine" in a quick manual click-through but broken for evaluators the moment
+  would have looked "fine" in a quick manual click-through but broken for users the moment
   someone sent a second chat message.
 
 ## 16. Two more real bugs found in Task 9 (KB), plus a test-flakiness fix
@@ -280,25 +280,25 @@ worth recording since they'd bite silently otherwise.
   from Tasks 8–9) as often as the new `summary.spec.ts` — it's the same class of DO/timing
   contention already documented in #16, not something Task 10 introduced. `retries: 1` already
   absorbs it and a clean run (all 4 green, zero retries needed) is common; not chasing further
-  tonight given Tasks 11–13 remain.
+  given Tasks 11–13 remain.
 
 ## 18. Skipping Task 11 (canned responses + AI draft replies) entirely
 
 - **Context:** Task 11 is explicitly marked stretch in the plan, with its own pre-authorized
   fallback clause: "if behind schedule at this point, SKIP this task entirely ... Task 12/13
-  matter more." Tasks 0–10 (all 7 of the assignment's required features plus AI summaries) are
+  matter more." Tasks 0–10 (all 7 of the spec's required features plus AI summaries) are
   done, deployed, and verified against prod. What remains is Task 13: a real-effort README (the
-  evaluator reads this first), a hardening pass, and the full acceptance matrix sweep against
+  user reads this first), a hardening pass, and the full acceptance matrix sweep against
   prod — none of which are optional, all of which map directly to "deployed & working" and
   "security" outranking "stretch features" in CLAUDE.md's stated priority order.
 - **Options:** (a) attempt Task 11 (canned responses + AI draft replies) before Task 13; (b) skip
   Task 11 entirely and go straight to Task 13.
 - **Chosen:** (b) — skip Task 11 entirely.
 - **Why:** The plan itself names this exact tradeoff and resolves it: required-feature hardening
-  and evaluator-facing documentation matter more than a stretch feature nobody asked to have
-  prioritized. Time remaining overnight is better spent making sure the 7 required features are
+  and user-facing documentation matter more than a stretch feature nobody asked to have
+  prioritized. Time remaining is better spent making sure the 7 required features are
   bulletproof and well-documented than adding an 8th nice-to-have. No canned-response UI or
-  AI-draft-reply endpoint exists in this build; the assignment's required surface area is
+  AI-draft-reply endpoint exists in this build; the spec's required surface area is
   unaffected.
 
 ## 19. Task 13 hardening: CORS scoping, D1 batch()ing, and a new D1 bug caught in the act
@@ -332,7 +332,7 @@ worth recording since they'd bite silently otherwise.
   linked article failed until the check changed from `!== 1` to `< 1` (matching the existing
   house style from #16), after which both the empty and non-empty cases verified correctly, plus
   the not-found case on a repeat delete.
-- **Why worth logging separately from #16:** this is a *new* bug this session introduced (via the
+- **Why worth logging separately from #16:** this is a *new* bug this build introduced (via the
   batching change) and caught the same night by re-running the exact manual curl scenario the
   earlier #16 bug had already taught us to check for — evidence the "test the full documented
   behavior, not just what the UI happens to call" lesson generalizes, and a good illustration of
@@ -340,7 +340,7 @@ worth recording since they'd bite silently otherwise.
 
 ## 20. Task 13: found and fixed a real onboarding gap — no UI ever showed the widget install key
 
-- **Context:** while manually walking the "Try it now" evaluator flow for the README, discovered
+- **Context:** while manually walking the "Try it now" user flow for the README, discovered
   that `SettingsPage.tsx` (and every other dashboard page) never displayed the workspace's
   `widgetKey` — there was no way for an admin to get their own install snippet from the UI at
   all, despite the frontend `Workspace` type claiming `widgetKey`/`widgetColor` as required
@@ -354,7 +354,7 @@ worth recording since they'd bite silently otherwise.
   (`backend/src/auth/auth.api.ts`), and added an "Install the widget" section to
   `SettingsPage.tsx` — the script-tag snippet with a copy button, a link to open
   `/demo.html?key=...` with the workspace's own key, and a link to the public KB page.
-- **Why worth logging:** this would have directly broken the evaluator quick-start flow this
+- **Why worth logging:** this would have directly broken the user quick-start flow this
   session's README asks for ("open Settings, copy the widget key") — caught by actually walking
   that flow in a real browser as a fresh signup, not by reading the code. A good example of why
   the verification protocol insists on clicking through features as a user would, not just
@@ -366,12 +366,12 @@ worth recording since they'd bite silently otherwise.
   `docs/screenshots/` and embedded in the README. Captured all four via the browser automation
   tool with `save_to_disk: true` (dashboard conversation + real AI summary, widget ticket list
   with two persisted tickets, KB public article, Settings widget-install panel), but the tool's
-  claimed on-disk save path wasn't resolvable from this session's filesystem access (searched the
+  claimed on-disk save path wasn't resolvable from this build's filesystem access (searched the
   scratchpad session directory and common temp/download locations — not found).
 - **Chosen:** don't block the rest of Task 13 on this. The README instead leans on the live prod
-  URLs (which evaluators can click through in under 2 minutes per the "Try it now" section) plus
+  URLs (which users can click through in under 2 minutes per the "Try it now" section) plus
   the detailed textual walkthrough — a live, interactive product is stronger evidence than static
-  screenshots anyway, and every feature described was independently verified this session with
+  screenshots anyway, and every feature described was independently verified this build with
   real evidence (see the acceptance matrix pass and #17–#20).
 - **Why it's safe:** this is the one sub-item squarely in "visual polish" per CLAUDE.md's stated
   priority order (deployed & working > core-feature correctness > security > stretch features >
@@ -380,15 +380,15 @@ worth recording since they'd bite silently otherwise.
 
 ## 22. Morning review (Fable): 12 findings fixed, one flake root-caused as a real auth bug
 
-Full-codebase review of the overnight build (every backend module read line-by-line, key
+Full-codebase review of the build (every backend module read line-by-line, key
 frontend paths, live Chrome verification against prod before and after fixes). Everything below
 was fixed, unit/e2e-verified locally, deployed, and re-verified against prod in one pass.
 
 - **Resend quota mystery solved (the user's "lots of emails" question).** `POST /auth/magic-link`
   and `POST /ws/:wsId/invites` always sent a real Resend email even when the `X-Debug-Auth`
-  header was present — so every overnight e2e run and curl flow fired real emails at fake
+  header was present — so every e2e run and curl flow fired real emails at fake
   `*-spec-*@example.com` addresses (confirmed in the Resend dashboard: dozens of "Sign in to
-  SuperProfile" sends stuck in "Delivery Delayed"). That burned the ~100/day quota (the 4:27/4:33
+  Hyugorix" sends stuck in "Delivery Delayed"). That burned the ~100/day quota (the 4:27/4:33
   AM notices) and risks sender-reputation damage when they bounce out. Decision #4 *claimed*
   debug-auth avoided sending; the code never did that on either endpoint. **Fix:** when the debug
   header authenticates, echo the token and skip the send entirely. Verified: the full prod e2e
@@ -410,7 +410,7 @@ was fixed, unit/e2e-verified locally, deployed, and re-verified against prod in 
 - **UNIQUE(workspace_id,email) crash in `resolveContact`.** A widget visitor typing an email that
   another contact already held (or a real email arriving from an address a widget visitor had
   typed) made the INSERT/UPDATE throw → 500 on widget create / inbound ingest — exactly the flow
-  an evaluator hits testing widget + email with their own address. **Fix:** `claimableEmail()` —
+  an user hits testing widget + email with their own address. **Fix:** `claimableEmail()` —
   a VERIFIED email (inbound mail) steals the address from an unverified holder per the identity
   rules; an UNVERIFIED (widget-typed) one is dropped to null. Both directions curl-verified.
 - **WS contact-isolation gap in `WorkspaceHub`.** CONTACT sockets could send `TYPING`/`READ` for
@@ -496,7 +496,7 @@ was fixed, unit/e2e-verified locally, deployed, and re-verified against prod in 
 - **Context**: User asked for a "Delegate to AI" mode: AI replies autonomously using the KB (linking article URLs instead of pasting), customer can type "escalate to human", AI self-escalates when it lacks info, assignee stays the human owner, composer locked while AI handles, distinct inbox colors.
 - **Options**: (a) new AI sender type vs reusing AGENT with null sender; (b) escalation detection by regex only vs model-decided ESCALATE token vs both; (c) AI trigger inside the DO vs at the API/worker layer.
 - **Chosen**: sender_type 'AI' (required rebuilding messages table — SQLite CHECK can't be altered; migration 0004 copies all rows); both regex ("talk to a human" etc., checked pre-LLM, free) and model token (prompt outputs exactly ESCALATE); trigger at worker layer (widget POST waitUntil, email inbound inline) — avoids DO-self-fetch deadlock risk. AI failure/timeout escalates rather than leaving the customer stuck. Delegate/takeover are assignee-only; reassign/resolve always clears AI flags; agent reply clears ai_escalated. Colors: violet=AI handling, orange=escalated (top of inbox via lastMessageAt bump).
-- **Why**: distinct sender type keeps history honest for the evaluator (AI vs human replies visibly different); dual escalation covers both explicit customer intent (deterministic) and model judgment; worker-layer trigger keeps the DO simple and single-purpose.
+- **Why**: distinct sender type keeps history honest for the user (AI vs human replies visibly different); dual escalation covers both explicit customer intent (deterministic) and model judgment; worker-layer trigger keeps the DO simple and single-purpose.
 
 ## Custom domains: real Cloudflare-for-SaaS wiring (docs.kaushikrb.com)
 
@@ -535,7 +535,7 @@ and API surface (`custom_domains` table, status lifecycle) are in place.
 
 ## 23. KB sync live-check: superprofile.bio no longer fails as a whole-run bot-protection case
 
-**Context:** Task 5's live-check script (plan `2026-07-11-overnight-features-v2.md`) expected
+**Context:** Task 5's live-check script (plan `2026-07-11-features-v2.md`) expected
 `https://superprofile.bio/blog` to end the sync `FAILED` with a "bot protection" message, proving
 the crawler fails honestly on a protected site. Live run against prod (`sp.hyugorix.com`) instead
 produced `status=DONE, pagesFound=1, pagesImported=0, pagesFailed=1, error=null` — the site now
@@ -577,7 +577,7 @@ used by the runner's finalize step. FAILED never arms the cooldown, so a user wh
 blocked or JS-only site can correct the URL and retry immediately.
 **Why:** "Partial import" still reports DONE (imported>0 with pagesFailed>0 shown in the panel),
 so nothing successful is discarded. Only the zero-import case flips to FAILED — there is nothing
-to preserve there, and an honest error both fixes the morning demo beat (superprofile.bio →
+to preserve there, and an honest error both fixes a follow-up demo beat (superprofile.bio →
 bot-protection message, verified live post-deploy) and covers client-rendered docs sites with a
 useful message. Live re-run: blocked path now FAILED with the bot-protection message; happy path
 11/11 imported; cooldown armed; digest generated (1487 chars).
@@ -631,7 +631,7 @@ and was caught before the very first page-view rows landed — no bad data to cl
 **Context:** Feature 1 needs a defined behavior for what happens when a workspace syncs the same
 docs site twice (URL edited, or the user just clicks Sync again after the cooldown) — locked with
 the user in the spec, worth recording precisely because it constrains both the schema and the
-demo script (the morning demo relies on hono.dev being re-syncable without duplicating articles).
+demo script (a follow-up demo relies on hono.dev being re-syncable without duplicating articles).
 **Chosen:** `kb-sync/import.service.ts#upsertImportedArticle` keys off `(workspace_id,
 source_url)` — a unique index (`idx_kb_articles_source`, migration `0005_kb_sync.sql`) enforces
 one article per source URL per workspace. A hit updates `title`, `body_md`, `body_text`,
@@ -645,7 +645,7 @@ IS NULL` (created by hand in the KB editor) are invisible to this whole code pat
 `WHERE workspace_id=?1 AND source_url=?2` lookup can never match a NULL-source row.
 **Why:** upsert-by-URL with no deletes is the only re-sync semantics that's safe to demo live
 without a "did it just wipe something" moment, and it was an explicit user decision (spec's
-"Explicitly out of scope tonight" list: "deleting KB articles on re-sync"). Stable slugs mean a
+"Explicitly out of scope" list: "deleting KB articles on re-sync"). Stable slugs mean a
 digest generated from sync N is never invalidated by sync N+1 even if titles changed slightly.
 
 ## 28. Analytics: per-agent stats attribute to the *current* assignee, not point-in-time
@@ -712,5 +712,5 @@ marginal — FTS search already covers manually-edited articles at full freshnes
 for *breadth* across a large imported doc set, which only changes in bulk, at sync time. The
 accepted staleness window (a manual edit doesn't appear in the digest gist until the next sync)
 is a documented, deliberate trade-off, not a bug — call it out in the README's "Docs import"
-section so an evaluator reading the digest's cited titles against a since-edited article doesn't
+section so an user reading the digest's cited titles against a since-edited article doesn't
 mistake it for one.

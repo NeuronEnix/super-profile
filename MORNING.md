@@ -1,13 +1,13 @@
 # MORNING.md — for Kaushik
 
-Overnight batch v2 (2026-07-11 night → 07-11 morning). This file is fully replaced tonight — it
+Batch v2 (2026-07-11). This file is fully replaced — it
 covers only the five new features. Everything from the previous session (custom domains, DMARC,
 inbound email transport, rate-limit flag, etc.) is unchanged and still exactly as documented in
 `README.md` / `decision.md` entries #1–22; nothing in this batch touched any of that.
 
 ## TL;DR
 
-All five features from `docs/superpowers/specs/2026-07-11-overnight-features-v2-design.md` are
+All five features from `docs/superpowers/specs/2026-07-11-features-v2-design.md` are
 **built, deployed, and verified**:
 
 1. KB sync from an existing docs site (+ AI docs digest)
@@ -16,7 +16,7 @@ All five features from `docs/superpowers/specs/2026-07-11-overnight-features-v2-
 4. Contact timeline
 5. Analytics dashboard
 
-Latest prod deploy: Worker version `c9639658-1c30-45c4-b4a9-d3d7a8da2ddb`. Evidence tonight:
+Latest prod deploy: Worker version `c9639658-1c30-45c4-b4a9-d3d7a8da2ddb`. Evidence:
 **145/145 backend unit tests green**, **6/6 Playwright specs green locally** (`wrangler dev`) and
 **6/6 green again against prod** (`https://sp.hyugorix.com`), `https://docs.kaushikrb.com` →
 **200**. `ban-gera` (your real demo workspace) was **not touched** — verified directly against
@@ -25,10 +25,10 @@ because the demo script below runs on `ban-gera` and needs the cooldown to be fr
 time you run it — see the demo script and the note at the bottom about what happens *after* you
 run it once.
 
-Full autonomous-decision trail: `decision.md` entries **#23–#30** (new tonight) — two are
+Full autonomous-decision trail: `decision.md` entries **#23–#30** (new) — two are
 orchestrator review fixes over the executor's first pass (#24 overrides #23: a zero-import sync
 now fails honestly instead of quietly reporting "DONE · 0 articles"). Plan file:
-`docs/superpowers/plans/2026-07-11-overnight-features-v2.md` — all 11 tasks, 84 steps ticked.
+`docs/superpowers/plans/2026-07-11-features-v2.md` — all 11 tasks, 84 steps ticked.
 
 ---
 
@@ -109,7 +109,7 @@ can report page views from the very first visit — this also incidentally fixes
 unread badge, which previously couldn't receive `sp:unread` until the widget had been opened
 once (decision #26). Page navigations (including SPA hash routing, debounced so one navigation
 = one report with the settled title) land in a new `contact_events` table. The inbox's contact
-panel becomes a "super profile": name/email, **Last seen** (relative time), a recent-activity
+panel becomes a full profile: name/email, **Last seen** (relative time), a recent-activity
 feed of pages browsed, and every past conversation with that contact (clickable).
 
 **Where:** `backend/migrations/0007_contact_events.sql`, `backend/src/widget/widget.api.ts`
@@ -152,7 +152,7 @@ Delegate-to-AI conversations already in ban-gera.
 
 Order matters — step 1 must run *before* step 2 on the same workspace, because a failed sync
 never arms the cooldown but a successful one does; running the bot-protection failure first
-costs nothing and sets up the "honest failure → real success" narrative for evaluators.
+costs nothing and sets up the "honest failure → real success" narrative for users.
 
 1. **KB page (ban-gera) → Docs import panel → paste `https://superprofile.bio/blog` → Sync.**
    Watch it end **FAILED** with the bot-protection message ("This site blocks automated access
@@ -178,10 +178,10 @@ costs nothing and sets up the "honest failure → real success" narrative for ev
   before the real evaluation, temporarily lower `KB_SYNC_COOLDOWN_MIN` in `backend/wrangler.jsonc`
   (`vars`) to something small (e.g. `1`) and redeploy (`cd backend && npx wrangler deploy`), run
   through it, then set it back to `1440` and redeploy again before the real session — otherwise
-  an evaluator re-running the sync mid-demo will just see "Next sync available in ~24h" instead
+  an user re-running the sync mid-demo will just see "Next sync available in ~24h" instead
   of a live crawl. The bot-protection step (superprofile.bio) never arms the cooldown, so you can
   re-run *that* half as many times as you like without redeploying anything.
-- **Throwaway `sync-check-*` workspaces exist in prod** (created by tonight's live-verification
+- **Throwaway `sync-check-*` workspaces exist in prod** (created by's live-verification
   script and the Playwright prod-smoke run against real workspaces it creates itself) — these are
   expected clutter, entirely ignorable, and never touch ban-gera.
 - **Resolution-median definition** (worth knowing before reading the Analytics tab yourself):
@@ -193,9 +193,9 @@ costs nothing and sets up the "honest failure → real success" narrative for ev
   Everything from the *previous* night's MORNING.md (custom domains connect-UI playbook, DMARC
   TXT record change, real inbound email transport decision, Resend quota check) is untouched and
   still pending exactly as previously documented — see `decision.md` #1–22 and the prior
-  `docs/superpowers/plans/2026-07-10-super-profile-implementation.md` Task 12 for those.
+  `docs/superpowers/plans/2026-07-10-hyugorix-implementation.md` Task 12 for those.
 - **Minor pre-existing README staleness spotted and fixed:** the "Built vs. skipped" table's
   "AI draft replies" row still said "Skipped" even though "Delegate to AI" (autonomous
   KB-grounded replies) was built in the session *before* this one (commit `1fd3aa8`) — corrected
-  in tonight's README pass since it directly contradicted the new feature list. Flagging in case
+  in's README pass since it directly contradicted the new feature list. Flagging in case
   there's other drift from that same gap worth a closer read when you're up.

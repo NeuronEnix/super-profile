@@ -8,7 +8,7 @@ export const KB_SYNC = { STATUS: { RUNNING: "RUNNING", DONE: "DONE", FAILED: "FA
   PAGE_CAP: 15, ARTICLE_CAP: 10, BATCH_SIZE: 5, FETCH_TIMEOUT_MS: 10_000,
   MAX_HTML_BYTES: 2_000_000, MIN_CONTENT_CHARS: 80, BLOCKED_STREAK_LIMIT: 3,
   STALE_RUNNING_MS: 15 * 60 * 1000,
-  USER_AGENT: "SuperProfileBot/1.0 (+https://sp.hyugorix.com)",
+  USER_AGENT: "HyugorixBot/1.0 (+https://sp.hyugorix.com)",
   BLOCKED_MSG: "This site blocks automated access (bot protection). Try a different docs URL.",
   NO_CONTENT_MSG: "We couldn't import any articles from this URL. Make sure it points at a public, server-rendered docs site." } as const;
 export const CONTACT_EVENT = { TYPE: { PAGE_VIEW: "PAGE_VIEW" } } as const;

@@ -1,5 +1,5 @@
 {
-  "name": "super-profile",
+  "name": "hyugorix",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -7,7 +7,7 @@
   "observability": { "enabled": true },
   "assets": { "directory": "../frontend/dist", "binding": "ASSETS",
               "not_found_handling": "single-page-application", "run_worker_first": true },
-  "d1_databases": [{ "binding": "DB", "database_name": "super-profile", "database_id": "04dbac7e-6f9d-438c-a379-b64b90b82734" }],
+  "d1_databases": [{ "binding": "DB", "database_name": "hyugorix", "database_id": "04dbac7e-6f9d-438c-a379-b64b90b82734" }],
   "durable_objects": { "bindings": [
     { "name": "WORKSPACE_HUB", "class_name": "WorkspaceHub" },
     { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
@@ -18,8 +18,8 @@
     { "tag": "v2", "new_sqlite_classes": ["KbSyncRunner"] }
   ],
   "ai": { "binding": "AI" },
-  "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "super-profile-attachments" }],
-  // Vanity domain: "SP" in the hostname (product is still shown as "SuperProfile" in the UI/emails).
+  "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "hyugorix-attachments" }],
+  // Vanity domain: "SP" in the hostname (product is still shown as "Hyugorix" in the UI/emails).
   // Single-level subdomain of hyugorix.com (Universal SSL covers it); apex MX untouched.
   // sp.hyugorix.com serves app + API same-origin from one Worker: /api/v1/* → Hono, everything
   // else → the SPA. Same-origin is deliberate — it's what lets the SameSite=Strict refresh cookie work.

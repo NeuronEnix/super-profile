@@ -1,4 +1,4 @@
-# super-profile Implementation Plan
+# hyugorix Implementation Plan
 
 > **For agentic workers:** This plan is designed for inline execution in a `/loop`
 > (superpowers:executing-plans style). Steps use checkbox (`- [ ]`) syntax — **mark them `[x]`
@@ -40,7 +40,7 @@ pnpm. No other runtime deps without a decision.md entry.
   `frontend/public/demo.html` (placeholder), `e2e/package.json`, `e2e/playwright.config.ts`
 
 **Interfaces produced:** deployed Worker URL (record it in MORNING.md "Status snapshot");
-D1 database `super-profile` with full schema; `Env` type in `backend/src/types.ts`:
+D1 database `hyugorix` with full schema; `Env` type in `backend/src/types.ts`:
 
 ```ts
 export type Env = {
@@ -57,7 +57,7 @@ export type Env = {
 
 ```jsonc
 {
-  "name": "super-profile",
+  "name": "hyugorix",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -65,14 +65,14 @@ export type Env = {
   "observability": { "enabled": true },
   "assets": { "directory": "../frontend/dist", "binding": "ASSETS",
               "not_found_handling": "single-page-application", "run_worker_first": true },
-  "d1_databases": [{ "binding": "DB", "database_name": "super-profile", "database_id": "FILL_ME" }],
+  "d1_databases": [{ "binding": "DB", "database_name": "hyugorix", "database_id": "FILL_ME" }],
   "durable_objects": { "bindings": [
     { "name": "WORKSPACE_HUB", "class_name": "WorkspaceHub" },
     { "name": "RATE_LIMITER", "class_name": "RateLimiter" }
   ]},
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WorkspaceHub", "RateLimiter"] }],
   "ai": { "binding": "AI" },
-  "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "super-profile-attachments" }],
+  "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "hyugorix-attachments" }],
   "vars": { "APP_URL": "FILL_AFTER_FIRST_DEPLOY", "INBOUND_DOMAIN": "inbox.hyugorix.com",
             "SEND_DOMAIN": "notifications.hyugorix.com", "ENVIRONMENT": "prod" }
 }
@@ -80,7 +80,7 @@ export type Env = {
 
 (`new_sqlite_classes` is mandatory — classic DO storage is paid-only. Placeholder DO classes in 0.5 so deploy succeeds.)
 
-- [x] **0.3 Create cloud resources**: `cd backend && npx wrangler d1 create super-profile` (paste id into wrangler.jsonc) and `npx wrangler r2 bucket create super-profile-attachments`.
+- [x] **0.3 Create cloud resources**: `cd backend && npx wrangler d1 create hyugorix` (paste id into wrangler.jsonc) and `npx wrangler r2 bucket create hyugorix-attachments`.
 - [x] **0.4 Migration 0001_init.sql** — full DDL, exact:
 
 ```sql
@@ -173,11 +173,11 @@ CREATE TABLE canned_responses (
 );
 ```
 
-Apply: `npx wrangler d1 migrations apply super-profile --local --yes` then `--remote --yes` (if `--yes` unsupported, `printf 'y\n' |`). Expected: all statements executed.
+Apply: `npx wrangler d1 migrations apply hyugorix --local --yes` then `--remote --yes` (if `--yes` unsupported, `printf 'y\n' |`). Expected: all statements executed.
 
 - [x] **0.5 Hello worker** — `src/index.ts`: Hono app; placeholder `export class WorkspaceHub { constructor(state: DurableObjectState, env: Env) {} async fetch() { return new Response('ok'); } }` and same for `RateLimiter`; route `GET /api/v1/health` → `{code:"OK",msg:"OK",data:{ts}}`; catch-all `app.all('*', c => c.env.ASSETS.fetch(c.req.raw))`. `pnpm --dir frontend build`, `npx wrangler dev` → curl health + `/` returns SPA html.
 - [x] **0.6 Secrets**: generate `openssl rand -hex 32` ×5 → append to root `.env` (JWT_ACCESS_SECRET etc.); write all six into `backend/.dev.vars`; `npx wrangler secret put <NAME>` ×6 (pipe values: `printf '%s' "$VAL" | npx wrangler secret put NAME`).
-- [x] **0.7 Deploy + record URL**: `npx wrangler deploy` → note `https://super-profile.<sub>.workers.dev`, set `APP_URL` var in wrangler.jsonc, redeploy, update MORNING.md snapshot. Curl prod `/api/v1/health`.
+- [x] **0.7 Deploy + record URL**: `npx wrangler deploy` → note `https://hyugorix.<sub>.workers.dev`, set `APP_URL` var in wrangler.jsonc, redeploy, update MORNING.md snapshot. Curl prod `/api/v1/health`.
 - [x] **0.8 Commit + push** (`feat: scaffold worker, d1 schema, deploy skeleton`).
 
 **Fallback:** R2 create fails → drop the binding from config, note in decision.md (attachments are stretch).
@@ -252,7 +252,7 @@ export function uuidv7(): string {
 - `signAccessToken(env, userId): Promise<string>` / `verifyAccessToken(env, jwt): Promise<{sub:string}>` (hono/jwt, HS256, exp; verify throws `ctxErr.auth.expiredAccessToken()` on exp, `invalidAccessToken()` otherwise). Same pair for refresh + widget tokens (widget payload `{sub, ws, kind:"CONTACT"}`).
 - `authMiddleware` → validates Bearer → `c.set("userId")`. `wsMiddleware` (mounted at `/api/v1/ws/:wsId/*`) → membership lookup → `c.set("member", {role, workspaceId})` or `ctxErr.workspace.notMember()`. `requireAdmin`.
 - `EmailSender` interface `{ send(m: {from, to, subject, html, text, headers?, replyTo?}): Promise<{id: string|null}> }`; `resendSender(apiKey)` (POST api.resend.com/emails; non-2xx → `ctxErr.email.sendFailed({info})`) and `logSender` (console.log link/dev). Factory `getSender(env)`: RESEND_API_KEY present ? resend : log.
-- Endpoints (public): `POST /api/v1/auth/magic-link {email}` — always 200 `{}`; creates users-less token row (`token = crypto.randomUUID()+crypto.randomUUID()` no dashes, store sha256Hex, TTL 10 min); sends email "Sign in to SuperProfile" with link `${APP_URL}/auth/verify?token=...`; **if header `X-Debug-Auth` equals `env.DEBUG_AUTH_SECRET`, include `{debugToken: raw}` in data**. Rate-limit hooks (Task 10) wrap this.
+- Endpoints (public): `POST /api/v1/auth/magic-link {email}` — always 200 `{}`; creates users-less token row (`token = crypto.randomUUID()+crypto.randomUUID()` no dashes, store sha256Hex, TTL 10 min); sends email "Sign in to Hyugorix" with link `${APP_URL}/auth/verify?token=...`; **if header `X-Debug-Auth` equals `env.DEBUG_AUTH_SECRET`, include `{debugToken: raw}` in data**. Rate-limit hooks (Task 10) wrap this.
   `POST /auth/verify {token}` — atomic consume:
 
 ```ts
@@ -418,7 +418,7 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
 
 ---
 
-### Task 12: Custom domains — **DONE DIFFERENTLY (morning session, 2026-07-11)**
+### Task 12: Custom domains — **DONE DIFFERENTLY (follow-up, 2026-07-11)**
 
 > Implemented the FULL production path instead of the lite version: Cloudflare for SaaS custom
 > hostname `docs.kaushikrb.com` → fallback origin `fallback.hyugorix.com` (AAAA 100:: proxied) →
@@ -428,7 +428,7 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
 > settings-UI/DoH-verify spec below was superseded; the demo mapping row is seeded via SQL.
 > See decision.md "Custom domains: real Cloudflare-for-SaaS wiring".
 >
-> (Original overnight note: deferred by user decision; spec below was the morning playbook.)
+> (Original note: deferred by user decision; spec below was the follow-up playbook.)
 
 **Files:** `backend/src/domains/domains.api.ts`, `src/domains/verify.ts`; `frontend/src/settings/DomainsPage.tsx`; Host-header middleware finalized (Task 9 hook).
 
@@ -443,7 +443,7 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
 
 **Files:** `README.md` (root), polish across; `e2e/tests/smoke.spec.ts` (prod).
 
-- [x] README (the evaluator reads this — spend real effort): what/why, architecture diagram (ASCII), schema summary, real-time design (DO ordering + hibernation + reconnect), email engineering (threading diagram: Message-ID/In-Reply-To/plus-addressing), AI design (windowing/cache/fallback/cost), security section (token model incl. CSRF/XSS reasoning, tenant isolation, widget isolation, sanitization, rate-limit flag), trade-offs & deliberate scope (from decision.md: no Queues, markdown-as-rich-text, stateless refresh, custom-domain SSL stub), built vs skipped table, local setup (exact commands incl. `.dev.vars` template), deployment, testing instructions for evaluators (URLs, demo page, inbound email address, sample workspace), known limitations (from MORNING.md list).
+- [x] README (the user reads this — spend real effort): what/why, architecture diagram (ASCII), schema summary, real-time design (DO ordering + hibernation + reconnect), email engineering (threading diagram: Message-ID/In-Reply-To/plus-addressing), AI design (windowing/cache/fallback/cost), security section (token model incl. CSRF/XSS reasoning, tenant isolation, widget isolation, sanitization, rate-limit flag), trade-offs & deliberate scope (from decision.md: no Queues, markdown-as-rich-text, stateless refresh, custom-domain SSL stub), built vs skipped table, local setup (exact commands incl. `.dev.vars` template), deployment, testing instructions for users (URLs, demo page, inbound email address, sample workspace), known limitations (from MORNING.md list).
 - [x] Hardening pass: every route zod-validated (grep for `c.req.json()` outside validate); D1 batch where multi-write; widget CORS headers on `/api/v1/widget/*` + `/api/v1/public/*` (`Access-Control-Allow-Origin: *`, no credentials) and NONE elsewhere; security headers on HTML (CSP frame-ancestors for /widget-app must ALLOW all — it's an embed; X-Frame-Options absent there, DENY on dashboard routes... assets serve both, so: set CSP via Hono only on API-rendered pages, skip static-page headers, note in README); 404/empty states in UI; loading skeletons on inbox. Also found+fixed a real bug while verifying (D1 batch changes-counting, decision #19) and a real onboarding gap (no UI ever surfaced the widget key, decision #20).
 - [x] **Final acceptance matrix — run every line against PROD, tick only on evidence:**
   - [x] 1a Signup/login via magic link (real email to Gmail read via browser MCP, not debug header — once)
@@ -458,7 +458,7 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
   - [x] Stretch present: canned responses, AI drafts (if Task 11 done) — N/A, Task 11 deliberately skipped (decision #18)
   - [x] Envelope discipline: spot-check 5 endpoints incl. errors (200/400 shapes)
   - [x] README accurate; MORNING.md final status written; decision.md complete
-- [x] `e2e` full suite green against prod (`BASE_URL=<prod> pnpm test`). Screenshots captured via browser automation but the tool's save-to-disk path wasn't resolvable this session — not embedded as files (decision #21); the README leans on live URLs + a detailed walkthrough instead.
+- [x] `e2e` full suite green against prod (`BASE_URL=<prod> pnpm test`). Screenshots captured via browser automation but the tool's save-to-disk path wasn't resolvable this build — not embedded as files (decision #21); the README leans on live URLs + a detailed walkthrough instead.
 - [x] Final commit + push (`docs: README, hardening, final acceptance evidence`).
 - [x] **Stop the loop** (ScheduleWakeup stop) after appending the final status block to MORNING.md.
 
@@ -466,7 +466,7 @@ type MessageOut = { conversation: ConversationRow; message: MessageRow };
 
 ## Self-review notes (writing-plans checklist)
 
-- Spec coverage: all init.md sections map to Tasks 0–13; assignment's 7 features map to the
+- Spec coverage: all init.md sections map to Tasks 0–13; the spec's 7 features map to the
   acceptance matrix in Task 13. Rate limiting (flag), logging, validation are Tasks 1/10/13.
 - Type consistency: `MessageIn/MessageOut`, `ctxErr` factory names, `searchArticles`,
   `parseInboundAddress`, env/secret names are single-sourced here and in CLAUDE.md — do not

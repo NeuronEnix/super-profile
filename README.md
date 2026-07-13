@@ -1,22 +1,22 @@
-# SuperProfile
+# Hyugorix
 
 A production-deployed Intercom clone — live chat widget, unified inbox, email channel, markdown
 knowledge base, and AI conversation summaries — built on Cloudflare Workers, D1, Durable Objects,
-and Workers AI. Built in ~48 hours as a Staff Engineer take-home assignment.
+and Workers AI.
 
 **Live:** https://sp.hyugorix.com
 **Widget demo:** https://sp.hyugorix.com/demo.html
 
-Jump to: [Try it now](#try-it-now-evaluator-quick-start) · [Architecture](#architecture) ·
+Jump to: [Try it now](#try-it-now-quick-start) · [Architecture](#architecture) ·
 [Schema](#database-schema) · [Real-time design](#real-time-design-durable-objects) ·
 [Email engineering](#email-engineering) · [AI design](#ai-design) · [Security](#security) ·
-[What shipped overnight (v2)](#what-shipped-overnight-v2) ·
+[Additional features (v2)](#additional-features-v2) ·
 [Trade-offs](#trade-offs--deliberate-scope) · [Built vs. skipped](#built-vs-skipped) ·
 [Local setup](#local-setup) · [Deployment](#deployment) · [Known limitations](#known-limitations)
 
 ---
 
-## Try it now (evaluator quick start)
+## Try it now (quick start)
 
 No passwords, ever — this product is magic-link-only, so "sign up" and "log in" are the same
 one-click flow.
@@ -24,17 +24,17 @@ one-click flow.
 1. Go to **https://sp.hyugorix.com** and enter your email. Click the link
    we send you (arrives in seconds; check spam once, see [known limitations](#known-limitations)).
    You now have your own workspace — this is real signup, not a demo account.
-2. **Widget (feature 2):** open **Settings** in the new workspace, copy the widget key, then visit
+2. **Widget:** open **Settings** in the new workspace, copy the widget key, then visit
    `/demo.html?key=<your widget key>` in a *second* browser tab (or an incognito window) — that
    page simulates a customer's website with the chat bubble embedded via one `<script>` tag. Send
    a message as the visitor, then flip back to your dashboard tab to see it arrive live and reply.
-3. **Inbox (feature 4) + AI summary (feature 6):** exchange 6+ messages in that conversation (either
+3. **Inbox + AI summary:** exchange 6+ messages in that conversation (either
    side) and the right-hand panel in the dashboard grows an "AI Summary" (WANTS/TRIED/STATUS) —
    generated live by Workers AI, cached until the conversation's next message.
-4. **Knowledge base (feature 5):** Knowledge Base tab → new collection → new article (markdown,
+4. **Knowledge base:** Knowledge Base tab → new collection → new article (markdown,
    live preview) → Publish. It's now live at `/kb/<your-workspace-slug>` with full-text search,
    and the widget's "New conversation" screen will suggest it if a visitor types a matching query.
-5. **Email (feature 3):** every workspace gets an inbound address
+5. **Email:** every workspace gets an inbound address
    `<your-workspace-slug>@inbox.hyugorix.com`. Real delivery is one Cloudflare Email Routing zone
    setting away from being switched on for the account owner (see
    [known limitations](#known-limitations)) — until then, use the built-in simulator:
@@ -47,7 +47,7 @@ one-click flow.
    It lands in your inbox as a real EMAIL-channel conversation; reply from the dashboard and it
    sends a real email via Resend (with correct threading headers) back to whatever address you
    used as `from`.
-6. **Team/invites (feature 1):** Settings → invite a teammate by email (ADMIN/AGENT role); they
+6. **Team/invites:** Settings → invite a teammate by email (ADMIN/AGENT role); they
    get a real invite email with a one-click accept link.
 
 ---
@@ -65,7 +65,7 @@ CORS.
 ```
                                    sp.hyugorix.com
                                    ───────────────
-   Evaluator's        HTTPS        ┌──────────────────────────────────────┐
+   User's        HTTPS        ┌──────────────────────────────────────┐
    browser  ───────────────────────▶  Cloudflare Worker (Hono)            │
    (dashboard SPA,                 │  /api/v1/*   REST + WS upgrade       │
     widget iframe,                 │  /*          → Workers Static Assets │
@@ -92,7 +92,7 @@ CORS.
 ```
 
 ```
-super-profile/
+hyugorix/
 ├── backend/            # THE Worker — Hono API + WS + email() + serves frontend/dist
 │   ├── src/
 │   │   ├── auth/        magic-link issue/verify, access+refresh JWTs, invites
@@ -153,7 +153,7 @@ ordered, so `ORDER BY id` and `ORDER BY created_at` agree — no separate sequen
 | `attachments` | Schema + R2 binding exist; no UI built (see [built vs. skipped](#built-vs-skipped)). |
 | `kb_collections`, `kb_articles` | Markdown source of truth (`body_md`), plus a derived `body_text` (markdown stripped) that feeds full-text search. |
 | `kb_articles_fts` | FTS5 virtual table over `(title, body_text)`, kept in sync by `AFTER INSERT/UPDATE/DELETE` triggers on `kb_articles` — see the gotcha in [Trade-offs](#trade-offs--deliberate-scope). |
-| `custom_domains` | Schema exists (Task 12 morning playbook); not wired up tonight. |
+| `custom_domains` | Schema exists (Task 12 follow-up); not wired up yet. |
 
 Full DDL: [`backend/migrations/0001_init.sql`](backend/migrations/0001_init.sql),
 [`0002_fts.sql`](backend/migrations/0002_fts.sql).
@@ -241,7 +241,7 @@ Plus-addressing is primary because it survives the most hostile mail client beha
 "Show original" confirms correct `From`/`Reply-To`/`Message-Id`/`In-Reply-To` and SPF/DKIM/DMARC
 all passing (see [decision #13](decision.md)).
 
-**Inbound transport tonight = the simulator.** The parsing/threading/outbound pipeline is fully
+**Inbound transport for now = the simulator.** The parsing/threading/outbound pipeline is fully
 real and proven end-to-end; only the "how does a real email physically reach the Worker" leg is
 stubbed as `POST /api/v1/email/inbound` (secret-protected). Real transport needs either enabling
 Cloudflare Email Routing at the zone (which changes MX at the apex — the user's real inbox, hence
@@ -302,7 +302,7 @@ cost scales with *number of new messages*, not conversation depth or agent page-
   clears the cookie client-side and the access token simply expires within 30 minutes.
 - **`DEBUG_AUTH_SECRET` backdoor** exists solely so Playwright can log in without a mailbox. It's a
   Worker secret, never committed, and every code path is byte-identical to production unless the
-  exact header is present — evaluators using the product normally see zero difference (see
+  exact header is present — users using the product normally see zero difference (see
   [decision #4](decision.md)).
 
 **Tenant isolation.** Every tenant-scoped table carries `workspace_id`; every query goes through a
@@ -328,18 +328,18 @@ inject a script tag into either the admin preview or the public site.
 **Rate limiting** is fully implemented (`RateLimiter` DO, sliding-window, unit-tested pure window
 math) and wired onto the magic-link endpoint (per-email *and* per-IP) and both widget
 message-send endpoints, but ships **flag-off** (`FLAG.RATE_LIMIT_ENABLED = false` in
-`backend/src/common/const.ts`) so evaluators load-testing the demo don't get locked out. Flipping
+`backend/src/common/const.ts`) so users load-testing the demo don't get locked out. Flipping
 that one constant and redeploying turns enforcement on — see [decision #9](decision.md) and
 [decision #17](decision.md) (enforcement was verified live, not just unit-tested, by temporarily
 flipping the flag in local dev only).
 
 ---
 
-## What shipped overnight (v2)
+## Additional features (v2)
 
-A second overnight batch, on top of everything above, added five features in priority order —
-full design rationale in [`docs/superpowers/specs/2026-07-11-overnight-features-v2-design.md`](docs/superpowers/specs/2026-07-11-overnight-features-v2-design.md),
-task-by-task implementation log in [`docs/superpowers/plans/2026-07-11-overnight-features-v2.md`](docs/superpowers/plans/2026-07-11-overnight-features-v2.md).
+A second batch, on top of everything above, added five features in priority order —
+full design rationale in [`docs/superpowers/specs/2026-07-11-features-v2-design.md`](docs/superpowers/specs/2026-07-11-features-v2-design.md),
+task-by-task implementation log in [`docs/superpowers/plans/2026-07-11-features-v2.md`](docs/superpowers/plans/2026-07-11-features-v2.md).
 
 1. **KB sync from an existing docs site** — paste a docs URL, hit Sync, and a `KbSyncRunner`
    Durable Object crawls it, converts pages to markdown, and populates the KB automatically (see
@@ -402,7 +402,7 @@ highlights:
 - **Custom domain SSL is a documented stub.** The *DNS verification* half (DoH TXT lookup against
   `1.1.1.1`/`cloudflare-dns.com`) is genuinely real when built; the *SSL provisioning* half would
   need Cloudflare for SaaS (`POST /zones/:id/custom_hostnames`), a paid feature that also needs a
-  second real domain to demo meaningfully — not worth building overnight for a demo nobody could
+  second real domain to demo meaningfully — not worth building for a demo nobody could
   fully exercise anyway. ([decision #2](decision.md))
 - **A found-and-fixed D1 gotcha worth flagging for anyone extending this:** `res.meta.changes`
   (SQLite's `sqlite3_changes()`, exposed by D1) counts rows touched by `AFTER` triggers as a side
@@ -414,15 +414,15 @@ highlights:
   envelope, email-threading matcher, zod validators, the rate-limiter's sliding-window math) is
   unit-tested in plain vitest; the real integration risk — Durable Objects, D1, WebSockets, and
   static assets all interacting — is covered end-to-end by Playwright against both local
-  `wrangler dev` and the deployed prod URL, which is a more honest test of what evaluators
+  `wrangler dev` and the deployed prod URL, which is a more honest test of what users
   actually experience than a mocked Workers runtime would be. ([decision #7](decision.md))
 
 ---
 
 ## Built vs. skipped
 
-All 7 assignment-required features are built and deployed. Stretch scope was cut deliberately, in
-priority order, when time ran out — nothing here is an oversight.
+All 7 core features are built and deployed. Stretch scope was cut deliberately, in
+priority order — nothing here is an oversight.
 
 | | Feature | Status |
 |---|---|---|
@@ -432,14 +432,14 @@ priority order, when time ran out — nothing here is an oversight.
 | 4 | Unified inbox — filters, assign, snooze, resolve | ✅ Built |
 | 5 | Knowledge base — markdown, categories, public site, search, widget auto-suggest | ✅ Built — FTS5-backed |
 | 6 | AI conversation summaries | ✅ Built — rolling, cached, graceful fallback |
-| 7 | Custom domains | 🟡 Documented approach + schema only; connect UI + real DNS verification is the [morning playbook](decision.md) (Task 12), deliberately deferred by explicit user decision before this session's sleep |
-| — | Canned responses (stretch) | ✅ Built in the v2 overnight batch — see [What shipped overnight (v2)](#what-shipped-overnight-v2); originally skipped ([decision #18](decision.md)), revisited the following night |
+| 7 | Custom domains | 🟡 Documented approach + schema only; connect UI + real DNS verification is deferred (see [decision.md](decision.md), Task 12) |
+| — | Canned responses (stretch) | ✅ Built in the v2 batch — see [Additional features (v2)](#additional-features-v2); originally skipped ([decision #18](decision.md)), revisited later |
 | — | AI draft replies (stretch) | ✅ Built — "Delegate to AI" autonomous KB-grounded replies with human escalation; closes the ticket itself once the customer confirms they need nothing else |
-| — | SLA tracking (stretch) | ✅ Built in the v2 overnight batch — first-response/resolution targets, on-read breach chips |
-| — | Analytics dashboard (stretch) | ✅ Built in the v2 overnight batch — response times, volume, busiest hours, agent + AI deflection stats |
-| — | R2 attachment upload UI | ❌ Skipped — table + R2 binding exist, no UI; not required by the assignment |
+| — | SLA tracking (stretch) | ✅ Built in the v2 batch — first-response/resolution targets, on-read breach chips |
+| — | Analytics dashboard (stretch) | ✅ Built in the v2 batch — response times, volume, busiest hours, agent + AI deflection stats |
+| — | R2 attachment upload UI | ❌ Skipped — table + R2 binding exist, no UI; not required by the spec |
 | — | Webhooks / public REST API keys | ❌ Skipped — explicitly out of scope per the original design spec |
-| — | Rate limiting *enforcement* | 🟡 Fully built + verified, ships flag-off (evaluator's call to flip it) |
+| — | Rate limiting *enforcement* | 🟡 Fully built + verified, ships flag-off (user's call to flip it) |
 
 ---
 
@@ -449,7 +449,7 @@ Requires Node 20+, [pnpm](https://pnpm.io), and a Cloudflare account with Worker
 Routing/Email Sending write scopes (`wrangler login` once).
 
 ```bash
-git clone <this repo> && cd super-profile
+git clone <this repo> && cd hyugorix
 pnpm install --dir backend
 pnpm install --dir frontend
 pnpm install --dir e2e
@@ -471,7 +471,7 @@ DEBUG_AUTH_SECRET=$(openssl rand -hex 32)
 
 ```bash
 # apply migrations to a local D1 sqlite file
-cd backend && npx wrangler d1 migrations apply super-profile --local --yes
+cd backend && npx wrangler d1 migrations apply hyugorix --local --yes
 
 # build the frontend once (the Worker serves the built dist/, no vite dev server involved)
 pnpm --dir ../frontend build
@@ -507,13 +507,13 @@ npx wrangler secret put DEBUG_AUTH_SECRET
 pnpm --dir ../frontend build && npx wrangler deploy
 
 # D1 migrations, remote
-npx wrangler d1 migrations apply super-profile --remote --yes
+npx wrangler d1 migrations apply hyugorix --remote --yes
 ```
 
 **Custom domain.** The Worker is bound to `sp.hyugorix.com` (app + API, same origin) via the
 `routes` block in `wrangler.jsonc` (`custom_domain: true`) — `wrangler deploy` auto-provisions the
 DNS record and edge TLS cert for it. It's a single-level subdomain (Universal SSL covers it). The
-app is shown to users as "SuperProfile"; only the hostname is shortened to `sp`.
+app is shown to users as "Hyugorix"; only the hostname is shortened to `sp`.
 
 Other DNS on `hyugorix.com` (added via the Cloudflare dashboard — the wrangler token can't write
 arbitrary DNS, only Workers custom domains): a single-level `inbox.` MX/TXT set for inbound email,
@@ -537,14 +537,14 @@ and `notifications.` for the Resend-verified outbound sending domain. The zone a
   mode: knowing a visitor's `userId` is equivalent to being that visitor for that one site (iframe
   localStorage is partitioned per host site, so this doesn't cross sites). HMAC-signed identity
   verification is the documented production hardening step, not built here.
-- **Custom domains (assignment feature 7)** are documented and schema-ready but the connect
+- **Custom domains (feature 7)** are documented and schema-ready but the connect
   UI + live DNS verification aren't wired up — an explicit, logged decision to spend remaining
   time on hardening the other 6 required features instead of a 7th that was already scoped as
   "lite" from the start. Full playbook: Task 12 in
-  [`docs/superpowers/plans/2026-07-10-super-profile-implementation.md`](docs/superpowers/plans/2026-07-10-super-profile-implementation.md).
-- **Rate limiting ships disabled** (`FLAG.RATE_LIMIT_ENABLED = false`) so evaluators aren't
+  [`docs/superpowers/plans/2026-07-10-hyugorix-implementation.md`](docs/superpowers/plans/2026-07-10-hyugorix-implementation.md).
+- **Rate limiting ships disabled** (`FLAG.RATE_LIMIT_ENABLED = false`) so users aren't
   accidentally locked out while testing; it's fully built and verified, one constant away from on.
-- **No R2 attachment upload UI** — schema and binding exist, not required by the assignment brief.
+- **No R2 attachment upload UI** — schema and binding exist, not required by the spec.
 
-Full decision history, including every dilemma resolved autonomously overnight and why:
+Full decision history, including every dilemma resolved and why:
 [`decision.md`](decision.md).

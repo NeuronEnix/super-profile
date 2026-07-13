@@ -1,6 +1,6 @@
-# SuperProfile Assignment — "Build Intercom" — Design Spec
+# Hyugorix — "Build Intercom" — Design Spec
 
-Ship a production-ready customer communication platform in 48 hours on Cloudflare.
+Ship a production-ready customer communication platform on Cloudflare.
 Stack decisions (locked): **Workers + Hono (TypeScript)** backend, **D1** database, **R2** for blobs,
 **React on Cloudflare Pages** frontend, **Durable Objects WebSockets** for real-time,
 **Resend** for all outbound email — magic links + agent replies (Cloudflare Email Routing for inbound),
@@ -11,7 +11,7 @@ Stack decisions (locked): **Workers + Hono (TypeScript)** backend, **D1** databa
 ## 1. Architecture overview
 
 ```
-super-profile/
+hyugorix/
 ├── backend/            # THE Worker: Hono API + WS + email() + serves frontend/dist
 │   ├── src/
 │   ├── migrations/     # D1 SQL migrations (wrangler d1 migrations)
@@ -73,13 +73,13 @@ constant `AI.MODEL` (easy swap). Rolling summary: last N messages + previous sum
 summary, cached in D1 keyed by message count so it only regenerates when the conversation grows,
 10s timeout + graceful "summary unavailable" fallback.
 
-**Custom domains: deferred to the morning session (user decision).** Overnight, the feature is
+**Custom domains: deferred (user decision).** For now, the feature is
 NOT built — only the README documents the approach: Settings page collects `help.theirdomain.com`
 → shows required records (CNAME to the worker hostname + TXT `_sp-verify.<host>` with a token)
 → Verify does a real DNS lookup via DNS-over-HTTPS (`https://cloudflare-dns.com/dns-query`,
 `accept: application/dns-json`) → PENDING_DNS/ACTIVE/FAILED; public KB resolves by Host header;
 SSL = Cloudflare for SaaS custom hostnames API (stub). The `custom_domains` table exists in the
-schema; the morning playbook is plan Task 12. MORNING.md carries the task.
+schema; the follow-up playbook is plan Task 12. MORNING.md carries the task.
 
 **DNS ground rules:** apex `hyugorix.com` records are never touched (MX → Microsoft 365, the
 user's real mail). Only single-level subdomains (`inbox.`, `notifications.`) get records; never
@@ -120,7 +120,7 @@ No passwords anywhere. Signup and login are the same flow.
 `POST /auth/magic-link` carries header `X-Debug-Auth: <that secret>`, the response `data`
 additionally includes the raw magic token so automated E2E tests (Playwright) can log in against
 local AND deployed environments without a mailbox. The secret is never committed; requests
-without the header behave identically to production. Evaluators are unaffected.
+without the header behave identically to production. Real users are unaffected.
 
 **Rate limiting (flag-gated, not enforced by default)**
 `/auth/magic-link` limited per **email** (e.g. 3/10 min) and per **IP** (e.g. 10/10 min) via the

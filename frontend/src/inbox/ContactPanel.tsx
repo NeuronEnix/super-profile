@@ -13,7 +13,7 @@ function pageLabel(url: string, title: string | null): string {
   }
 }
 
-/** The contact's "super profile": identity, presence, browsing trail and full history. */
+/** The contact's full profile: identity, presence, browsing trail and full history. */
 export function ContactPanel({
   wsId,
   contact,

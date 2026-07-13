@@ -102,7 +102,7 @@ export default function KbHome({ wsSlug: wsSlugProp, base: baseProp }: { wsSlug?
       <footer className="pb-8 text-center text-xs text-slate-400">
         Powered by{" "}
         <a href="https://sp.hyugorix.com" className="font-medium text-slate-500 hover:text-indigo-600">
-          SuperProfile
+          Hyugorix
         </a>
       </footer>
     </div>

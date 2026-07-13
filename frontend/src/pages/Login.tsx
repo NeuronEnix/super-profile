@@ -38,7 +38,7 @@ export default function Login() {
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
-            <h1 className="mb-1 text-lg font-semibold text-slate-900">Sign in to SuperProfile</h1>
+            <h1 className="mb-1 text-lg font-semibold text-slate-900">Sign in to Hyugorix</h1>
             <p className="mb-6 text-sm text-slate-500">We'll email you a magic link — no password needed.</p>
             <input
               type="email"

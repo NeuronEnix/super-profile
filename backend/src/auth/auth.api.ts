@@ -61,11 +61,11 @@ authApi.post(
 
     const link = `${config.APP_URL}/auth/verify?token=${raw}`;
     await getSender(c.env).send({
-      from: `SuperProfile <no-reply@${config.SEND_DOMAIN}>`,
+      from: `Hyugorix <no-reply@${config.SEND_DOMAIN}>`,
       to: email,
-      subject: "Sign in to SuperProfile",
-      text: `Sign in to SuperProfile:\n\n${link}\n\nThis link expires in 10 minutes.`,
-      html: `<p>Sign in to SuperProfile:</p><p><a href="${link}">${link}</a></p><p>This link expires in 10 minutes.</p>`,
+      subject: "Sign in to Hyugorix",
+      text: `Sign in to Hyugorix:\n\n${link}\n\nThis link expires in 10 minutes.`,
+      html: `<p>Sign in to Hyugorix:</p><p><a href="${link}">${link}</a></p><p>This link expires in 10 minutes.</p>`,
     });
     return ok(c);
   },

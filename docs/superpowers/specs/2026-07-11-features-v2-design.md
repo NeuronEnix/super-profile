@@ -1,6 +1,6 @@
-# Overnight Features v2 — Design (2026-07-11)
+# Features v2 — Design (2026-07-11)
 
-**Executor:** Sonnet (thinking: high), autonomous overnight run via /loop, following an
+**Executor:** Sonnet (thinking: high), autonomous run via /loop, following an
 implementation plan derived from this spec. Same operating mode as the first night: never ask,
 log dilemmas in `decision.md`, user-required actions in `MORNING.md`, commit after every green
 step, push after every task, deploy + prod-verify after every feature.
@@ -13,7 +13,7 @@ step, push after every task, deploy + prod-verify after every feature.
 4. **Contact timeline** — pages visited, last seen, past conversations in the inbox side panel
 5. **Analytics dashboard** — response times, resolution rate, busiest hours, agent + AI stats
 
-**Explicitly out of scope tonight (user decision):** webhooks / public API; multi-source sync;
+**Explicitly out of scope (user decision):** webhooks / public API; multi-source sync;
 deleting KB articles on re-sync; JS-only (client-rendered) docs sites; contact-event pruning.
 
 ---
@@ -117,7 +117,7 @@ zero extra code.
     `GET {origin}/sitemap.xml` — URLs in scope are appended to the frontier (still capped).
 - **`alarm()`**: processes up to **5 pages** per firing (small batches = fresh subrequest
   budget every firing, and progress persists between firings):
-  - per page: `fetch` with UA `SuperProfileBot/1.0 (+https://sp.hyugorix.com)`, 10 s timeout;
+  - per page: `fetch` with UA `HyugorixBot/1.0 (+https://sp.hyugorix.com)`, 10 s timeout;
     require 200 + `text/html`; HTML capped at 2 MB. Page-level failures increment
     `pages_failed` and never abort the run.
   - extract main content → convert to markdown → upsert article (see below) → collect
@@ -206,7 +206,7 @@ DIGEST_CHAR_CAP: 4_000 }`. Config: `KB_SYNC_COOLDOWN_MIN` through `getConfig` (v
 - **No e2e against external sites** (flaky + impolite), **no self-crawl** (error 1042 —
   Worker cannot fetch its own hostname).
 - **Prod verification (once, after deploy)**: create/use a **throwaway test workspace — NOT
-  ban-gera** (the demo workspace with docs.kaushikrb.com must stay untouched overnight);
+  ban-gera** (the demo workspace with docs.kaushikrb.com must stay untouched);
   sync `https://hono.dev/docs` (probed 2026-07-11: 200, server-rendered, `<main>` present,
   no sitemap → exercises the BFS path); verify: panel progress ticks, ~10 articles +
   collections appear, public KB page renders one, cooldown countdown shows and the button is
@@ -325,7 +325,7 @@ The loader knows the page; the iframe knows the identity — they already talk v
 
 - `GET /ws/:wsId/contacts/:contactId/timeline` (member) → `{contact (incl. lastSeenAt),
   events: last 30, conversations: all for the contact}`.
-- `ContactPanel` (11 lines today) becomes the "super profile": name/email, **Last seen 2m
+- `ContactPanel` (11 lines today) becomes the full profile: name/email, **Last seen 2m
   ago** (live-ish — refetch on conversation change), "Recent activity" (page title or path +
   relative time), "Conversations" (channel icon, subject, status, relative time; current one
   highlighted; clicking selects that conversation in the inbox).

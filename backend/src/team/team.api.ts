@@ -69,11 +69,11 @@ teamApi.post("/invites", requireAdmin, validate(InviteBody, "json"), async (c) =
   const wsName = workspace?.name ?? "a workspace";
   const link = `${config.APP_URL}/invite?token=${raw}`;
   await getSender(c.env).send({
-    from: `SuperProfile <no-reply@${config.SEND_DOMAIN}>`,
+    from: `Hyugorix <no-reply@${config.SEND_DOMAIN}>`,
     to: email,
-    subject: `You've been invited to join ${wsName} on SuperProfile`,
-    text: `You've been invited to join ${wsName} on SuperProfile as ${role}.\n\n${link}\n\nThis invite expires in 7 days.`,
-    html: `<p>You've been invited to join <strong>${escapeHtml(wsName)}</strong> on SuperProfile as ${role}.</p><p><a href="${link}">${link}</a></p><p>This invite expires in 7 days.</p>`,
+    subject: `You've been invited to join ${wsName} on Hyugorix`,
+    text: `You've been invited to join ${wsName} on Hyugorix as ${role}.\n\n${link}\n\nThis invite expires in 7 days.`,
+    html: `<p>You've been invited to join <strong>${escapeHtml(wsName)}</strong> on Hyugorix as ${role}.</p><p><a href="${link}">${link}</a></p><p>This invite expires in 7 days.</p>`,
   });
 
   return ok(c, { invite: { id: inviteId, email, role, expiresAt: ts + AUTH.INVITE_TTL_SEC * 1000 } });

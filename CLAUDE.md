@@ -1,25 +1,23 @@
-# super-profile — Intercom clone on Cloudflare (48h hiring assignment)
+# hyugorix — Intercom clone on Cloudflare
 
 **READ FIRST, IN ORDER:** `init.md` (full design spec) →
-`docs/superpowers/plans/2026-07-10-super-profile-implementation.md` (task plan + execution
+`docs/superpowers/plans/2026-07-10-hyugorix-implementation.md` (task plan + execution
 protocol) → `decision.md` (decisions already made — do not relitigate).
 
 ## Mission
 
 Ship a production-ready customer communication platform (live chat widget + email channel +
-unified inbox + KB + AI summaries) for the SuperProfile Staff Engineer assignment. It must be
-**deployed and testable by evaluators** ("If it's not deployed, it's an automatic no").
+unified inbox + KB + AI summaries) on Cloudflare. It must be **deployed and testable**.
 Priorities when trading off: **deployed & working > core-feature correctness > security >
 stretch features > visual polish**.
 
-## Operating mode (overnight autonomous run)
+## Operating mode (autonomous run)
 
-- The user (Kaushik) is asleep. **Never ask questions; never wait for input.** When facing a
-  genuine dilemma: pick the option that best serves the priorities above, and append an entry to
-  `decision.md` (format: Context / Options / Chosen / Why). Anything requiring the user's hands
-  goes to `MORNING.md`.
-- Work on `main`. Commit after every green step (small, descriptive commits — the evaluator
-  reads the history). Push to `origin` (github.com/NeuronEnix/super-profile) after every task.
+- When running unattended, **don't block on input.** When facing a genuine dilemma: pick the
+  option that best serves the priorities above, and append an entry to `decision.md` (format:
+  Context / Options / Chosen / Why). Anything requiring the user's hands goes to `MORNING.md`.
+- Work on `main`. Commit after every green step (small, descriptive commits — keep the history
+  readable). Push to `origin` (github.com/NeuronEnix/hyugorix) after every task.
 - After each phase: deploy (`cd backend && npx wrangler deploy`) and verify against prod.
 - Update plan checkboxes (`- [x]`) in the plan file as steps complete — progress must survive
   session loss.
@@ -40,7 +38,7 @@ stretch features > visual polish**.
 | Browser automation | claude-in-chrome MCP (user's real Chrome, logged into Gmail/Outlook/Cloudflare/Resend) — load via ToolSearch; if disconnected, use chrome-devtools-mcp (isolated) or Playwright |
 | DNS writes | wrangler token CANNOT write DNS. Use browser automation on dash.cloudflare.com (hyugorix.com only), else note in MORNING.md |
 | DNS ground rules | NEVER touch apex hyugorix.com records (MX = Microsoft 365, user's real email). Single-level subdomains only (`inbox.`, `notifications.`); NEVER nested subdomains (no Advanced Certificate Manager) |
-| Custom domains feature | DEFERRED overnight (user decision) — README approach only; plan Task 12 is the morning playbook |
+| Custom domains feature | DEFERRED (user decision) — README approach only; plan Task 12 is the follow-up playbook |
 
 ## Secrets (names are contract — set via `wrangler secret put`, local in `backend/.dev.vars`)
 
@@ -76,7 +74,7 @@ gitignored). NEVER commit secrets; never echo them into git-tracked files.
 # local dev (build assets first — no vite dev server needed)
 pnpm --dir frontend build && cd backend && npx wrangler dev          # http://localhost:8787
 # db
-cd backend && npx wrangler d1 migrations apply super-profile --local --yes   # or --remote
+cd backend && npx wrangler d1 migrations apply hyugorix --local --yes   # or --remote
 # deploy (builds nothing — always build frontend first)
 pnpm --dir frontend build && cd backend && npx wrangler deploy
 # tests
@@ -104,4 +102,4 @@ browser (Playwright or chrome MCP) — click it, see it. Realtime: two browser c
 (widget + dashboard) exchanging messages. Email: simulator round-trip only in automated tests
 (no real sends — see the hard rule above); verify real deliverability once, by hand, via the prod
 UI if needed. Deployed = re-run the E2E smoke against the prod URL after deploy. The final task in
-the plan has the full acceptance matrix mapping to the assignment's 7 required features.
+the plan has the full acceptance matrix mapping to the 7 required features.
